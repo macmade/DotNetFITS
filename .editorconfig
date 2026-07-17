@@ -1,0 +1,37 @@
+# EditorConfig - https://editorconfig.org
+#
+# Establishes the culture-invariant formatting and comparison convention the
+# FITS format requires: all parsing and formatting must be deterministic and
+# independent of the machine's current culture. These .NET analyzer rules turn
+# any culture-sensitive formatting, casing or comparison into a build error,
+# forcing an explicit invariant / ordinal choice throughout the library.
+#
+# Caveat: these analyzers catch explicit ToString / Format / Parse and the
+# comparison methods, but they do NOT catch culture-sensitive string
+# interpolation of numbers (e.g. $"{value}", which uses the current culture).
+# So, as a convention, numeric values must never be raw-interpolated: format
+# them explicitly with CultureInfo.InvariantCulture. Any milestone that formats
+# numbers must also include tests that run under a non-invariant culture (for
+# example fr-FR) to catch culture regressions the build alone cannot see.
+
+root = true
+
+[*.cs]
+
+# Require an explicit IFormatProvider (use CultureInfo.InvariantCulture) for
+# every numeric and date/time format or parse operation.
+dotnet_diagnostic.CA1305.severity = error
+
+# Require an explicit CultureInfo for culture-aware string operations.
+dotnet_diagnostic.CA1304.severity = error
+
+# Require an explicit culture (or the invariant version) for ToUpper / ToLower.
+dotnet_diagnostic.CA1311.severity = error
+
+# Require an explicit StringComparison (use Ordinal) for StartsWith / EndsWith /
+# IndexOf / Compare, which otherwise default to the current culture.
+dotnet_diagnostic.CA1310.severity = error
+
+# Prefer an ordinal StringComparison over a linguistic (culture-aware) one for
+# the non-linguistic comparisons the FITS format requires.
+dotnet_diagnostic.CA1309.severity = error

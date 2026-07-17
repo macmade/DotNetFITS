@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SwiftFITS &rarr; C# / .NET 10 Port &mdash; Implementation Plan</title>
+<style>
+    :root {
+        --bg:            #0f1115;
+        --bg-elev:       #171a21;
+        --bg-elev-2:     #1e222b;
+        --border:        #2a2f3a;
+        --text:          #d7dce4;
+        --text-dim:      #9aa4b2;
+        --text-faint:    #6b7482;
+        --accent:        #6ea8fe;
+        --accent-soft:   #24314a;
+        --code-bg:       #12151b;
+        --green-bg:      #14351f;
+        --green-fg:      #6ee7a0;
+        --green-bd:      #1f5c37;
+        --amber-bg:      #3a2f12;
+        --amber-fg:      #f2c14e;
+        --amber-bd:      #6b551d;
+        --gray-bg:       #262b34;
+        --gray-fg:       #aab2bf;
+        --gray-bd:       #3a414d;
+        --radius:        10px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        line-height: 1.6;
+        font-size: 16px;
+    }
+    .wrap { max-width: 960px; margin: 0 auto; padding: 48px 24px 96px; }
+    h1, h2, h3, h4 { line-height: 1.25; font-weight: 650; color: #fff; }
+    h1 { font-size: 2rem; margin: 0 0 8px; letter-spacing: -0.02em; }
+    h2 { font-size: 1.4rem; margin: 48px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 1.15rem; margin: 28px 0 10px; }
+    h4 { font-size: 1rem; margin: 20px 0 8px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+    p { margin: 10px 0; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code, pre, .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: 0.88em; }
+    code { background: var(--code-bg); padding: 1px 5px; border-radius: 5px; color: #cdd6e4; }
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; overflow-x: auto; }
+    pre code { background: none; padding: 0; }
+    ul, ol { margin: 10px 0; padding-left: 22px; }
+    li { margin: 5px 0; }
+    strong { color: #eef1f6; }
+    hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+
+    .subtitle { color: var(--text-dim); font-size: 1.05rem; margin-top: 0; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 20px 0 8px; padding: 16px 18px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); }
+    .meta div { font-size: 0.92rem; }
+    .meta .label { color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.72rem; display: block; margin-bottom: 2px; }
+
+    .capsule { display: inline-block; padding: 2px 11px; border-radius: 999px; font-size: 0.74rem; font-weight: 650; letter-spacing: 0.03em; text-transform: uppercase; border: 1px solid transparent; white-space: nowrap; vertical-align: middle; }
+    .status-not-started { background: var(--gray-bg);  color: var(--gray-fg);  border-color: var(--gray-bd); }
+    .status-in-progress { background: var(--amber-bg); color: var(--amber-fg); border-color: var(--amber-bd); }
+    .status-completed   { background: var(--green-bg); color: var(--green-fg); border-color: var(--green-bd); }
+
+    .callout { background: var(--bg-elev); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: var(--radius); padding: 14px 18px; margin: 16px 0; }
+    .callout.warn { border-left-color: var(--amber-fg); }
+
+    .qa { margin: 14px 0; padding: 16px 18px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); }
+    .qa .q { font-weight: 650; color: #fff; margin-bottom: 6px; }
+    .qa .a { color: var(--text-dim); }
+    .qa .a b { color: var(--green-fg); font-weight: 650; }
+
+    table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 0.9rem; }
+    th, td { text-align: left; padding: 8px 12px; border: 1px solid var(--border); vertical-align: top; }
+    th { background: var(--bg-elev-2); color: var(--text); font-weight: 600; }
+    td { background: var(--bg-elev); color: var(--text-dim); }
+    .table-scroll { overflow-x: auto; }
+
+    /* Table of contents */
+    .toc { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 20px 16px; }
+    .toc .phase { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-faint); margin: 16px 0 6px; font-weight: 700; }
+    .toc ol { list-style: none; padding: 0; margin: 0; counter-reset: none; }
+    .toc li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px dashed var(--border); }
+    .toc li:last-child { border-bottom: none; }
+    .toc a { flex: 1; }
+    .toc .num { color: var(--text-faint); font-family: ui-monospace, monospace; font-size: 0.82em; margin-right: 8px; }
+
+    /* Milestones */
+    .milestone { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px 22px 22px; margin: 18px 0; scroll-margin-top: 20px; }
+    .milestone .m-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
+    .milestone .m-head h3 { margin: 0; }
+    .field { margin: 14px 0 0; }
+    .field .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-faint); font-weight: 700; margin-bottom: 3px; }
+    .field .placeholder { color: var(--text-faint); font-style: italic; }
+
+    ul.tasks { list-style: none; padding-left: 4px; margin: 6px 0; }
+    ul.tasks li.task { position: relative; padding-left: 30px; margin: 7px 0; }
+    ul.tasks li.task::before { content: "\2610"; position: absolute; left: 0; top: -1px; font-size: 1.15em; color: var(--text-faint); }
+    ul.tasks li.task.done::before { content: "\2611"; color: var(--green-fg); }
+    ul.tasks li.task.done { color: var(--text-faint); text-decoration: line-through; }
+
+    .phase-banner { margin: 40px 0 4px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); font-weight: 700; }
+
+    .footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--text-faint); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+    <h1>Port SwiftFITS to C# / .NET 10</h1>
+    <p class="subtitle">A milestone-based plan to port the SwiftFITS FITS-file parser to an idiomatic, maintainable C# library targeting .NET&nbsp;10, with the full test suite ported to xUnit.</p>
+
+    <div class="meta">
+        <div><span class="label">Generated</span> 2026-07-17</div>
+        <div><span class="label">Source</span> <code>Docs/agent-plans/2026-07-16-dotnet-port/dotnet-port.md</code></div>
+        <div><span class="label">Target</span> .NET 10 &middot; C# latest &middot; xUnit v3</div>
+        <div><span class="label">Original</span> <code>../SwiftFITS</code></div>
+    </div>
+
+    <h2>Overview</h2>
+    <p>
+        SwiftFITS is a FITS (Flexible Image Transport System) file parser and serializer written in Swift 6:
+        roughly <strong>3,680 lines across 11 source files</strong> and <strong>~4,424 lines across 13 test files</strong>
+        (<strong>231 <code>@Test</code> functions</strong> using the Swift Testing framework). The library reads FITS files
+        into a model of <em>sections</em> (a primary header, optional extension headers, and their data segments),
+        each header being a list of 80-byte <em>properties</em> (keyword / value / comment records), and serializes that
+        model back to standards-compliant bytes with byte-for-byte round-tripping of unmodified content.
+    </p>
+    <p>
+        This plan ports the whole library and its tests to C# / .NET 10. The approach is <strong>dependency-ordered and
+        incremental</strong>: each milestone ports one layer (or one concern of a large type), adds its tests, and leaves
+        the solution <strong>compiling with all tests green</strong>, so every milestone can be reviewed and committed on
+        its own. The port favors <strong>idiomatic C#</strong> over a mechanical translation while preserving the public
+        API shape, type structure, names, and observable behavior wherever practical, so a SwiftFITS user recognizes the
+        C# API. The scaffolding &mdash; solution (<code>DotNetFITS.slnx</code>), class library (<code>DotNetFITS</code>),
+        and xUnit v3 test project (<code>DotNetFITSTests</code>) with <code>InternalsVisibleTo</code>,
+        nullable reference types, and warnings-as-errors &mdash; is already in place.
+    </p>
+
+    <h2>Questions &amp; answers</h2>
+    <p>The design decisions settled with the maintainer before planning:</p>
+
+    <div class="qa">
+        <div class="q">1. What C# type should represent binary data (Swift's Foundation <code>Data</code>)?</div>
+        <div class="a">
+            <b>ReadOnlyMemory&lt;byte&gt;.</b> It is the faithful analog of a Swift <code>Data</code> slice &mdash; a
+            value type wrapping <code>(buffer, offset, length)</code> whose <code>.Slice()</code> is O(1) and shares
+            storage, and which can be stored in a field. This preserves SwiftFITS's zero-copy behavior (chunking a large
+            file into 2880-byte blocks, and holding data segments, without duplicating the bytes). Extension methods may
+            be added on <code>ReadOnlyMemory&lt;byte&gt;</code> and/or <code>byte[]</code> to mirror the Swift standard
+            library helpers where applicable and appropriate. <code>ReadOnlySpan&lt;byte&gt;</code> is used for local
+            hot paths only (it is a stack-only <code>ref struct</code> and cannot be a field).
+        </div>
+    </div>
+
+    <div class="qa">
+        <div class="q">2. How should Swift's <code>FITSError</code> enum-with-associated-values map to C#?</div>
+        <div class="a">
+            <b>A single <code>FITSException : Exception</code> carrying a <code>FITSErrorKind</code> discriminator and
+            payload, with static factory methods per case</b> (e.g. <code>FITSException.DataError(reason)</code>,
+            <code>FITSException.InvalidBlockSize(size)</code>). This keeps the one-error-type structure of the Swift enum
+            and lets tests assert <code>Assert.Throws&lt;FITSException&gt;</code>, matching Swift's
+            <code>#expect(throws: FITSError.self)</code>. The maintainer's usual C# convention (&ldquo;avoid throwing
+            from public methods&rdquo;) is deliberately overridden here because the source document mandates
+            exception-based error handling &ldquo;as in SwiftFITS,&rdquo; and the entire API surface is
+            <code>throws</code>.
+        </div>
+    </div>
+
+    <div class="qa">
+        <div class="q">3. What C# shape should <code>FITSValue</code> take?</div>
+        <div class="a">
+            <b>A <code>readonly struct</code> with static factory methods, a <code>FITSValueKind</code> discriminator,
+            and nullable typed accessors</b>, implementing <code>IEquatable&lt;FITSValue&gt;</code> with the Swift
+            equality quirk that <code>NaN == NaN</code> (and a matching <code>GetHashCode</code>). A value type is the
+            closest match to Swift's value-type enum, is consistent with the <code>ReadOnlyMemory&lt;byte&gt;</code>
+            choice, and avoids allocating a small heap object for every header value. The internal layout should reuse a
+            single 8-byte numeric slot (reinterpreting bits for <code>bool</code>/<code>long</code>/<code>double</code>)
+            plus one string reference, rather than one field per kind, to keep the struct lean.
+        </div>
+    </div>
+
+    <h2>Notes</h2>
+
+    <h3>Conventions</h3>
+    <ul>
+        <li><strong>Naming:</strong> normal .NET conventions (PascalCase members, <code>I</code>-prefixed interfaces),
+            but keep SwiftFITS <strong>formatting</strong> conventions (brace and alignment style) as the source document
+            requests. One public type per file, organized into subfolders.</li>
+        <li><strong>Visibility:</strong> library types are explicitly <code>public</code> by default (per the
+            maintainer's convention); reserve <code>internal</code>/<code>private</code> for genuine implementation
+            details. Members mutate through get/set properties rather than fields.</li>
+        <li><strong>Doc comments:</strong> use C# XML documentation comments &mdash; <code>///</code> followed by
+            XML tags (<code>&lt;summary&gt;</code>, <code>&lt;param&gt;</code>, <code>&lt;returns&gt;</code>,
+            <code>&lt;remarks&gt;</code>, <code>&lt;see cref&gt;</code>) &mdash; on every type and member, including
+            <code>internal</code>/<code>private</code> ones. The <code>///</code> delimiter <em>is</em> the standard
+            C# convention (per the Microsoft C# reference and the default project templates), not a SwiftDoc
+            artifact: Swift and C# share the <code>///</code> marker but differ in body syntax &mdash; C# uses XML
+            tags where SwiftDoc/DocC uses Markdown. (Recorded as a reference note for future ports.)</li>
+        <li><strong>License header:</strong> every file carries the MIT header block from SwiftFITS
+            (&ldquo;Copyright (c) 2026, Jean-David Gadina - www.xs-labs.com&rdquo;).</li>
+        <li><strong>Culture independence:</strong> <em>all</em> FITS parsing and formatting must be deterministic and
+            culture-invariant &mdash; use <code>CultureInfo.InvariantCulture</code> for every numeric
+            parse/format and ordinal string comparisons. This is a correctness requirement of the format.</li>
+        <li><strong>Invariant-culture enforcement:</strong> the rule above is enforced by a repo-root
+            <code>.editorconfig</code> that raises the .NET globalization analyzers (<code>CA1305</code>,
+            <code>CA1304</code>, <code>CA1311</code>, <code>CA1310</code>) to build errors, so any culture-sensitive
+            format/parse/casing/comparison must state an explicit invariant/ordinal choice. <strong>Caveat:</strong>
+            these analyzers do <em>not</em> catch culture-sensitive string <em>interpolation</em> of numbers
+            (<code>$"{value}"</code>), and they enforce explicitness rather than the specific invariant/ordinal
+            selection. So numbers must never be raw-interpolated, and every milestone that formats numbers must add
+            tests that run under a non-invariant culture (e.g. <code>fr-FR</code>) to catch regressions the build
+            cannot see.</li>
+        <li><strong>Constants:</strong> the FITS size constants live on <code>FITSFile</code> as
+            <code>public const</code> (<code>BlockSize = 2880</code>, <code>CardSize = 80</code>,
+            <code>KeywordLength = 8</code>, <code>FixedValueFieldWidth = 20</code>, <code>MaxDataSize = 1L &lt;&lt; 53</code>)
+            to preserve the <code>FITSFile.BlockSize</code> API. <code>FITSFile.cs</code> is created early holding only
+            these constants and completed in the later file-layer milestones.</li>
+        <li><strong>Async:</strong> the library is synchronous; the Swift tests are <code>async throws</code> only as a
+            Swift Testing idiom. The C# port and its tests are synchronous (<code>[Fact]</code> methods, no
+            <code>async</code>).</li>
+    </ul>
+
+    <h3>Porting hazards (read before implementing)</h3>
+    <ul>
+        <li><strong>Float serialization must keep a decimal point or exponent.</strong> Swift renders
+            <code>float(42.0)</code> as <code>"42.0"</code> (via <code>Double.description</code>), which re-parses as a
+            <em>float</em>. A naive <code>double.ToString(InvariantCulture)</code> yields <code>"42"</code>, which the
+            value classifier matches as an <em>integer</em> first &mdash; silently changing the type on round-trip. The
+            C# renderer must guarantee the output contains <code>.</code>, <code>E</code>, or <code>e</code> (append
+            <code>.0</code> when absent) so <code>float</code> values round-trip as floats. This is a case where the
+            &ldquo;42.0 vs 42&rdquo; difference the source doc calls acceptable is <em>not</em> acceptable, because it is
+            behavior tested by the original project.</li>
+        <li><strong><code>padding(toLength:withPad:startingAt:)</code> both pads <em>and truncates</em>.</strong> Swift's
+            method truncates when the string is longer than the target; C#'s <code>PadRight</code> only pads. A shared
+            helper must replicate pad-or-truncate semantics (used for keyword fields, the <code>END</code> marker, and
+            card padding).</li>
+        <li><strong><code>CharacterSet</code> has no .NET equivalent.</strong> The Swift <code>fitsPadding</code>,
+            <code>fitsPaddingWithNul</code>, and <code>fitsKeyword</code> sets become an internal FITS-charset helper
+            (membership predicates over <code>char</code>). The public trimming extensions take a set/predicate rather
+            than a <code>CharacterSet</code>.</li>
+        <li><strong>Property &rarr; section back-reference is a plain reference, not <code>weak</code>.</strong> Swift
+            uses <code>weak var section</code> to avoid a reference-counting cycle; the .NET GC collects cycles, so a
+            plain nullable reference (<code>FITSSection?</code>) is correct and simpler. The dirty-tracking hook
+            (<code>value</code>/<code>comment</code> setters calling <code>section?.MarkNeedsSerialization()</code>) is
+            preserved.</li>
+        <li><strong>Lazy cached flags.</strong> <code>FITSBlock</code>'s <code>lazy var</code> structural flags become
+            lazily-computed cached properties (nullable backing fields). The Swift &ldquo;not thread-safe&rdquo;
+            caveat is inherited and documented, not fixed.</li>
+        <li><strong>Regex.</strong> The integer / floating-point grammar patterns port verbatim to
+            <code>System.Text.RegularExpressions</code> (prefer <code>[GeneratedRegex]</code>), compiled once and
+            shared, using the same patterns.</li>
+        <li><strong>File reading.</strong> <code>Data(contentsOf:.mappedIfSafe)</code> maps to
+            <code>File.ReadAllBytes</code> (simple and safe) &mdash; or <code>MemoryMappedFile</code> if the mmap path is
+            wanted to fully exploit the <code>ReadOnlyMemory&lt;byte&gt;</code> zero-copy design. The Swift SIGBUS note
+            is dropped. A <code>URL</code> becomes a file path; failure is classified missing/directory &rarr;
+            <code>InvalidFileURL</code>, otherwise <code>CannotReadFile</code>.</li>
+        <li><strong>ASCII length model.</strong> A FITS record is 80 <em>bytes</em>; the parser guards that records are
+            ASCII so Swift <code>Character</code> counts and C# <code>string.Length</code> (UTF-16 units) both coincide
+            with the byte length. Keep the ASCII guard so all length/slicing math stays valid.</li>
+        <li><strong><code>OptionSet</code> &rarr; <code>[Flags] enum</code>.</strong> The two option types become
+            <code>[Flags]</code> enums; <code>Strict</code>/<code>Lenient</code> are combined named values.
+            <code>options.contains(.x)</code> becomes <code>options.HasFlag(...)</code> (or a bitwise test).</li>
+        <li><strong>Zero-based slicing.</strong> Because <code>ReadOnlyMemory&lt;byte&gt;.Slice</code> re-bases to index
+            0, the Swift gotcha of slices carrying a non-zero <code>startIndex</code> disappears &mdash; but the
+            <code>Chunked(by:)</code> and block-scanning logic must be written against offsets/lengths, not absolute
+            indices.</li>
+    </ul>
+
+    <h3>Test framework mapping</h3>
+    <p>Swift Testing &rarr; xUnit v3. See the <a href="#appendix">appendix</a> for the full table. Highlights:
+        <code>@Test</code> &rarr; <code>[Fact]</code>; <code>#expect(x)</code> &rarr; <code>Assert.True</code> /
+        <code>Assert.Equal</code>; <code>#require(x)</code> &rarr; unwrap-or-fail (<code>Assert.NotNull</code> then use);
+        <code>#expect(throws: FITSError.self){ }</code> &rarr; <code>Assert.Throws&lt;FITSException&gt;(() =&gt; ...)</code>;
+        <code>#expect(throws: Never.self){ }</code> &rarr; call directly (the test fails if it throws).
+        <code>@testable import</code> is covered by the existing <code>InternalsVisibleTo</code>.</p>
+
+    <h3>Key components (Swift &rarr; C#)</h3>
+    <div class="table-scroll">
+    <table>
+        <thead><tr><th>Swift file (LOC)</th><th>C# target</th><th>Milestone</th></tr></thead>
+        <tbody>
+            <tr><td><code>FITSError.swift</code> (95)</td><td><code>FITSException</code> + <code>FITSErrorKind</code></td><td>M2</td></tr>
+            <tr><td><code>FITSParsingOptions.swift</code> (147)</td><td><code>[Flags] FITSParsingOptions</code></td><td>M2</td></tr>
+            <tr><td><code>FITSSerializationOptions.swift</code> (74)</td><td><code>[Flags] FITSSerializationOptions</code></td><td>M2</td></tr>
+            <tr><td><code>CharacterSet.swift</code> (48)</td><td>internal FITS-charset helper</td><td>M3</td></tr>
+            <tr><td><code>String.swift</code> (64)</td><td><code>string</code> trimming extensions</td><td>M3</td></tr>
+            <tr><td><code>Data.swift</code> (81)</td><td><code>ReadOnlyMemory&lt;byte&gt;</code> / <code>byte[]</code> extensions</td><td>M3</td></tr>
+            <tr><td><code>FITSValue.swift</code> (260)</td><td><code>readonly struct FITSValue</code> + <code>FITSValueKind</code></td><td>M4</td></tr>
+            <tr><td><code>FITSBlock.swift</code> (112)</td><td><code>class FITSBlock</code></td><td>M5</td></tr>
+            <tr><td><code>FITSProperty.swift</code> (1044)</td><td><code>class FITSProperty</code></td><td>M6 (parse) + M7 (serialize)</td></tr>
+            <tr><td><code>FITSSection.swift</code> (773)</td><td><code>class FITSSection</code> + <code>FITSSection.Kind</code></td><td>M8</td></tr>
+            <tr><td><code>FITSFile.swift</code> (982)</td><td><code>class FITSFile</code></td><td>M1 (consts) + M9 (parse) + M10 (build/write)</td></tr>
+        </tbody>
+    </table>
+    </div>
+    <p class="field placeholder">Suggested library layout (starting point, refine during M1): <code>Errors/</code>,
+        <code>Options/</code>, <code>Values/</code>, <code>Model/</code> (block, section, property, file),
+        <code>Extensions/</code>. Tests mirror one class per source type, plus <code>TestUtilities</code> and
+        <code>TestError</code>.</p>
+
+    <!-- ============================ TABLE OF CONTENTS ============================ -->
+    <h2>Table of contents</h2>
+    <div class="toc">
+
+        <div class="phase">Phase 1 &middot; Foundations</div>
+        <ol>
+            <li><a href="#m1"><span class="num">M1</span> Project bootstrap, conventions &amp; shared constants</a> <span class="capsule status-completed">Completed</span></li>
+            <li><a href="#m2"><span class="num">M2</span> Errors &amp; option sets</a> <span class="capsule status-not-started">Not started</span></li>
+            <li><a href="#m3"><span class="num">M3</span> Low-level helpers &amp; test infrastructure</a> <span class="capsule status-not-started">Not started</span></li>
+        </ol>
+
+        <div class="phase">Phase 2 &middot; Value &amp; block layer</div>
+        <ol>
+            <li><a href="#m4"><span class="num">M4</span> FITSValue</a> <span class="capsule status-not-started">Not started</span></li>
+            <li><a href="#m5"><span class="num">M5</span> FITSBlock</a> <span class="capsule status-not-started">Not started</span></li>
+        </ol>
+
+        <div class="phase">Phase 3 &middot; Property layer</div>
+        <ol>
+            <li><a href="#m6"><span class="num">M6</span> FITSProperty &mdash; model, construction &amp; parsing</a> <span class="capsule status-not-started">Not started</span></li>
+            <li><a href="#m7"><span class="num">M7</span> FITSProperty &mdash; serialization</a> <span class="capsule status-not-started">Not started</span></li>
+        </ol>
+
+        <div class="phase">Phase 4 &middot; Section &amp; file layer</div>
+        <ol>
+            <li><a href="#m8"><span class="num">M8</span> FITSSection</a> <span class="capsule status-not-started">Not started</span></li>
+            <li><a href="#m9"><span class="num">M9</span> FITSFile &mdash; parsing, geometry &amp; validation</a> <span class="capsule status-not-started">Not started</span></li>
+            <li><a href="#m10"><span class="num">M10</span> FITSFile &mdash; construction, editing, serialization &amp; write</a> <span class="capsule status-not-started">Not started</span></li>
+        </ol>
+
+        <div class="phase">Phase 5 &middot; Integration &amp; finalization</div>
+        <ol>
+            <li><a href="#m11"><span class="num">M11</span> Integration tests &amp; sample-file parity</a> <span class="capsule status-not-started">Not started</span></li>
+            <li><a href="#m12"><span class="num">M12</span> Finalization &mdash; clean build, README, CI parity</a> <span class="capsule status-not-started">Not started</span></li>
+        </ol>
+    </div>
+
+    <!-- ============================ MILESTONES ============================ -->
+    <h2>Milestones</h2>
+
+    <div class="phase-banner">Phase 1 &middot; Foundations</div>
+
+    <!-- M1 -->
+    <div class="milestone" id="m1">
+        <div class="m-head">
+            <h3>M1 &middot; Project bootstrap, conventions &amp; shared constants</h3>
+            <span class="capsule status-completed">Completed</span>
+        </div>
+        <div class="field">
+            <div class="label">Goal</div>
+            Confirm the existing scaffolding builds and the test harness runs, establish the project's structure and
+            conventions, and introduce the FITS size constants that the rest of the port depends on &mdash; so every
+            later milestone has a green baseline to build on.
+        </div>
+        <div class="field">
+            <div class="label">Tasks</div>
+            <ul class="tasks">
+                <li class="task">Verify <code>dotnet build DotNetFITS.slnx</code> and <code>dotnet test DotNetFITS.slnx</code> run green as-is (net10.0, xUnit v3 on Microsoft.Testing.Platform, warnings-as-errors, nullable enabled).</li>
+                <li class="task">Establish the source-tree layout (subfolders, one public type per file) and add the shared MIT license header to a reusable snippet.</li>
+                <li class="task">Add a shared <code>string</code> pad-or-truncate helper mirroring Swift's <code>padding(toLength:withPad:startingAt:)</code> (pads <em>and</em> truncates) and an invariant-culture formatting convention.</li>
+                <li class="task">Create <code>FITSFile.cs</code> holding only the <code>public const</code> size constants (<code>BlockSize</code>, <code>CardSize</code>, <code>KeywordLength</code>, <code>FixedValueFieldWidth</code>, <code>MaxDataSize</code>); note the class is completed in M9&ndash;M10.</li>
+                <li class="task">Add a temporary trivial <code>[Fact]</code> proving the harness executes; remove or replace it once real tests land.</li>
+            </ul>
+        </div>
+        <div class="field"><div class="label">Status</div><span class="capsule status-completed">Completed</span></div>
+        <div class="field"><div class="label">Completed</div>2026-07-17</div>
+        <div class="field">
+            <div class="label">Implementation notes</div>
+            <p>Implemented with TDD &mdash; each unit written test-first, watched fail, then made to pass.</p>
+            <ul>
+                <li><strong>Baseline.</strong> <code>dotnet build</code> and <code>dotnet test</code> verified green in
+                    Debug <em>and</em> Release (0 warnings / 0 errors; warnings-as-errors, nullable and overflow checks
+                    active). An empty test project makes <code>dotnet test</code> exit with Microsoft.Testing.Platform
+                    code 8 (&ldquo;zero tests ran&rdquo;); the real M1 tests resolve this, so no separate throwaway
+                    <code>[Fact]</code> was needed.</li>
+                <li><strong>Layout &amp; headers.</strong> Established <code>DotNetFITS/Extensions/</code> and
+                    <code>DotNetFITS/Model/</code> (mirrored in the test project), one public type per file, and the
+                    SwiftFITS MIT header (2026 variant) applied verbatim to every new file. All library types use a
+                    flat <code>namespace DotNetFITS;</code> (folders are organizational only) so the public API stays
+                    recognizable to SwiftFITS users.</li>
+                <li><strong>Pad-or-truncate helper.</strong> <code>StringExtensions.PaddedOrTruncated( length,
+                    padCharacter = ' ' )</code> (internal, in <code>Extensions/</code>) mirrors Foundation's
+                    <code>padding(toLength:withPad:startingAt:)</code> pad-<em>and</em>-truncate semantics for the
+                    single-space pads every Swift call site uses; kept <code>internal</code> because it mirrors a
+                    Foundation method, not SwiftFITS's own public API. 6 tests.</li>
+                <li><strong>Constants.</strong> <code>FITSFile.cs</code> (in <code>Model/</code>) holds only the five
+                    <code>public const</code> size constants &mdash; <code>BlockSize</code>/<code>CardSize</code>/<code>KeywordLength</code>/<code>FixedValueFieldWidth</code>
+                    as <code>int</code>, <code>MaxDataSize = 1L &lt;&lt; 53</code> as <code>long</code> &mdash; matching
+                    <code>FITSFile.swift</code>. The class is completed in M9&ndash;M10. 2 tests.</li>
+                <li><strong>Invariant-culture convention.</strong> Realized as the repo-root <code>.editorconfig</code>
+                    described in the Conventions section; empirically verified it fires (a stray
+                    <code>double.ToString()</code> fails the build), with the interpolation blind spot documented as a
+                    caveat.</li>
+                <li><strong>Formatting.</strong> Applied the SwiftFITS style to C#: Allman braces, spaces inside
+                    parentheses and brackets <em>including attributes</em> (<code>[ Fact ]</code>), aligned <code>=</code>.
+                    The attribute spacing has no Swift analog and is flagged for maintainer confirmation before it
+                    propagates across the test suite.</li>
+                <li><strong>Tests:</strong> 9 passing (7 pad-helper + 2 constants).</li>
+            </ul>
+            <p><strong>Review follow-up (applied).</strong> After the maintainer's review of this milestone:</p>
+            <ul>
+                <li>Confirmed the <code>[ Fact ]</code> attribute spacing (kept).</li>
+                <li>Added <code>CA1309</code> (prefer <code>Ordinal</code> over a linguistic comparison) to the
+                    <code>.editorconfig</code>.</li>
+                <li>Enabled <code>GenerateDocumentationFile</code> on the library: missing public XML docs now fail the
+                    build (<code>CS1591</code>, verified with a throwaway undocumented member) and
+                    <code>DotNetFITS.xml</code> ships. Left off the test project, which is not a shipped API.</li>
+                <li><code>PaddedOrTruncated</code>: added an explicit
+                    <code>ArgumentOutOfRangeException.ThrowIfNegative( length )</code> guard &mdash; a contract test
+                    confirmed the prior code already threw <code>ArgumentOutOfRangeException</code> for
+                    <code>length</code> <em>incidentally</em> via <code>Substring</code>, so the guard makes the
+                    precondition explicit, self-documenting and independent of the truncation branch &mdash; switched
+                    the pad branch to <code>string.PadRight</code>, and documented the non-negative-length precondition
+                    and single-pad-character intent. +1 test.</li>
+                <li>Root <code>.gitignore</code> left to the maintainer.</li>
+            </ul>
+        </div>
+        <div class="field">
+            <div class="label">Automated review</div>
+            <p>Two independent fresh-context review rounds; converged on round 2 (no Critical/High/Medium findings).</p>
+            <p><strong>Round 1</strong> &mdash; 1 Medium + 5 Low/Info:</p>
+            <ul>
+                <li><em>Culture guardrail misses numeric string interpolation</em> &mdash; <strong>Medium</strong>
+                    &mdash; <strong>Fixed</strong>: no analyzer can catch <code>$"{value}"</code>, so the caveat was
+                    documented in <code>.editorconfig</code> and the Conventions, and culture-swap tests were mandated
+                    for number-formatting milestones. Forward-looking &mdash; M1 has no formatting code.</li>
+                <li><em>PaddedOrTruncated throws an opaque exception on negative length</em> &mdash; Low &mdash;
+                    Deferred.</li>
+                <li><em>Pad branch could use <code>string.PadRight</code></em> &mdash; Info &mdash; Deferred.</li>
+                <li><em>MaxDataSize test restates the <code>1L &lt;&lt; 53</code> definition</em> &mdash; Info &mdash;
+                    Deferred.</li>
+                <li><em>Formatting conventions are not machine-enforced</em> &mdash; Info &mdash; Deferred.</li>
+                <li><em>Root <code>.gitignore</code> is Swift/Xcode-only</em> &mdash; Info &mdash; Deferred
+                    (pre-existing, out of scope).</li>
+            </ul>
+            <p><strong>Round 2</strong> &mdash; converged; all Low/Info:</p>
+            <ul>
+                <li><em>Doc-comment convention not compiler-enforced (<code>GenerateDocumentationFile=false</code>);
+                    could ship XML docs and gate public members with CS1591</em> &mdash; Low &mdash; Deferred.</li>
+                <li><em><code>.editorconfig</code> enforces culture explicitness, not the specific invariant/ordinal
+                    choice; optionally add <code>CA1309</code></em> &mdash; Info &mdash; Deferred.</li>
+                <li><em>PaddedOrTruncated edge-case doc note (non-negative length; single pad-char vs Foundation's
+                    pad-string)</em> &mdash; Info &mdash; Deferred.</li>
+                <li><em>MaxDataSize test independence and un-gated formatting style</em> &mdash; Info &mdash; Deferred
+                    (reiterated from round 1).</li>
+            </ul>
+        </div>
+        <div class="field">
+            <div class="label">Review comments</div>
+            <ol>
+                <li><strong>Attribute spacing.</strong> Keep <code>[ Fact ]</code> (spaces inside attribute
+                    brackets) &mdash; approved as-is.</li>
+                <li><strong>Culture analyzers.</strong> Add the optional extra rule &mdash; <code>CA1309</code>
+                    (prefer <code>Ordinal</code> over <code>InvariantCulture</code> for non-linguistic string
+                    comparisons).</li>
+                <li><strong>Documentation file.</strong> Enable <code>GenerateDocumentationFile</code> so missing
+                    public XML docs are gated (CS1591) and the docs ship.</li>
+                <li><strong>PaddedOrTruncated / negative length.</strong> Detect the invalid argument explicitly and
+                    throw a clearer exception instead of leaking the opaque one from <code>Substring</code>.</li>
+                <li><strong>Pad branch.</strong> Left to the implementer's discretion (the <code>PadRight</code>
+                    simplification is being applied).</li>
+                <li><strong>Root <code>.gitignore</code>.</strong> The maintainer will handle this file &mdash; no
+                    change from the port.</li>
+            </ol>
+        </div>
+    </div>
+
+    <!-- M2 -->
+    <div class="milestone" id="m2">
+        <div class="m-head">
+            <h3>M2 &middot; Errors &amp; option sets</h3>
+            <span class="capsule status-not-started">Not started</span>
+        </div>
+        <div class="field">
+            <div class="label">Goal</div>
+            Port the leaf types that everything else throws or is parameterized by: the exception type and the two
+            option sets. These have essentially no dependencies and unblock every subsequent milestone.
+        </div>
+        <div class="field">
+            <div class="label">Tasks</div>
+            <ul class="tasks">
+                <li class="task">Port <code>FITSError</code> to <code>FITSException : Exception</code> + <code>FITSErrorKind</code> enum, with a static factory per case (all 11: invalid file URL, cannot read file, invalid block size/data, invalid section/file/property data, data error, invalid value for serialization, cannot serialize, cannot write file) and the <code>"FITS Error: ..."</code> message text.</li>
+                <li class="task">Port <code>FITSParsingOptions</code> to a <code>[Flags]</code> enum with all 14 flags and the <code>Strict</code>/<code>Lenient</code> combined values (spec conveniences vs leniency flags), preserving each flag's documented meaning.</li>
+                <li class="task">Port <code>FITSSerializationOptions</code> to a <code>[Flags]</code> enum (<code>CoerceInvalidKeywords</code>, <code>AllowDataSizeMismatch</code>) with <code>Strict</code>/<code>Lenient</code>.</li>
+                <li class="task">Port the <code>FITSError</code> tests and the <code>FITSSerializationOptions</code> tests. (Swift has no dedicated <code>FITSParsingOptions</code> test file.)</li>
+                <li class="task">Preserve full doc comments (public and internal members).</li>
+            </ul>
+        </div>
+        <div class="field"><div class="label">Status</div><span class="capsule status-not-started">Not started</span></div>
+        <div class="field"><div class="label">Completed</div><span class="placeholder">&mdash;</span></div>
+        <div class="field"><div class="label">Implementation notes</div><p class="placeholder">To be filled in as work progresses.</p></div>
+        <div class="field"><div class="label">Automated review</div><p class="placeholder">To be filled in by the automated review loop.</p></div>
+        <div class="field"><div class="label">Review comments</div><p class="placeholder">Awaiting human review.</p></div>
+    </div>
+
+    <!-- M3 -->
+    <div class="milestone" id="m3">
+        <div class="m-head">
+            <h3>M3 &middot; Low-level helpers &amp; test infrastructure</h3>
+            <span class="capsule status-not-started">Not started</span>
+        </div>
+        <div class="field">
+            <div class="label">Goal</div>
+            Port the small byte- and string-level helpers the parser leans on, plus the shared test fixtures &mdash; the
+            foundation every model test builds header/data blocks with.
+        </div>
+        <div class="field">
+            <div class="label">Tasks</div>
+            <ul class="tasks">
+                <li class="task">Port <code>CharacterSet.swift</code> to an internal FITS-charset helper (padding, padding-with-NUL, keyword membership predicates over <code>char</code>).</li>
+                <li class="task">Port <code>String.swift</code> to public <code>string</code> extensions <code>LeftTrimming</code>/<code>RightTrimming</code> taking a char set/predicate (not a <code>CharacterSet</code>).</li>
+                <li class="task">Port <code>Data.swift</code> to <code>ReadOnlyMemory&lt;byte&gt;</code> (and/or <code>byte[]</code>) extensions: <code>ContainsOnlyASCII</code>, <code>IsBlank</code>, <code>ContainsOnlyFITSPrintable</code>, <code>Chunked(by)</code> (throwing <code>FITSException</code> on bad size / uneven length), plus a <code>StartsWith(ReadOnlySpan&lt;byte&gt;)</code> used by <code>FITSBlock</code>.</li>
+                <li class="task">Port <code>TestError</code> (test-only) and <code>TestUtilities</code>: block builders (<code>DataBlock</code>, <code>HeaderBlock</code> from keywords and from fields, <code>StandardHeaderBlock</code>, <code>StandardExtensionBlock</code>) and the <code>TestFiles</code> resolver locating the repo-root <code>Test Files</code> directory (relative to the test source/assembly, not copied to output).</li>
+                <li class="task">Port the <code>CharacterSet</code>, <code>String</code>, <code>Data</code>, and <code>TestUtilities</code> self-tests.</li>
+            </ul>
+        </div>
+        <div class="field"><div class="label">Status</div><span class="capsule status-not-started">Not started</span></div>
+        <div class="field"><div class="label">Completed</div><span class="placeholder">&mdash;</span></div>
+        <div class="field"><div class="label">Implementation notes</div><p class="placeholder">To be filled in as work progresses.</p></div>
+        <div class="field"><div class="label">Automated review</div><p class="placeholder">To be filled in by the automated review loop.</p></div>
+        <div class="field"><div class="label">Review comments</div><p class="placeholder">Awaiting human review.</p></div>
+    </div>
+
+    <div class="phase-banner">Phase 2 &middot; Value &amp; block layer</div>
+
+    <!-- M4 -->
+    <div class="milestone" id="m4">
+        <div class="m-head">
+            <h3>M4 &middot; FITSValue</h3>
+            <span class="capsule status-not-started">Not started</span>
+        </div>
+        <div class="field">
+            <div class="label">Goal</div>
+            Port the typed value of a header property as a lean value type, with the exact equality, hashing, and
+            serialization behavior of the original &mdash; including the float round-trip guarantee.
+        </div>
+        <div class="field">
+            <div class="label">Tasks</div>
+            <ul class="tasks">
+                <li class="task">Port <code>FITSValue</code> to a <code>readonly struct</code> (with a compact internal layout: one numeric slot reinterpreted for <code>bool</code>/<code>long</code>/<code>double</code> + one string reference + <code>FITSValueKind</code>) and the <code>FITSValueKind</code> enum with its descriptions.</li>
+                <li class="task">Add static factories (<code>Logical</code>, <code>Integer</code>, <code>Float</code>, <code>String</code>, <code>Undefined</code>, <code>Unknown</code>), the <code>Kind</code> property, and nullable typed accessors.</li>
+                <li class="task">Implement <code>IEquatable&lt;FITSValue&gt;</code>, <code>==</code>/<code>!=</code>, and <code>GetHashCode</code> with <code>NaN == NaN</code> (all NaNs hash to one constant), matching the Swift semantics.</li>
+                <li class="task">Implement <code>Serialized()</code>: logical &rarr; <code>T</code>/<code>F</code>; integer &rarr; decimal; string &rarr; single-quoted with doubled interior quotes (null string <code>''</code>, empty string <code>' '</code>); undefined &rarr; empty; unknown &rarr; verbatim; float &rarr; shortest invariant round-trip with an upper-case <code>E</code> and <strong>guaranteed decimal point/exponent</strong> (see porting hazards), throwing on non-finite.</li>
+                <li class="task">Port the <code>FITSValue</code> tests; adapt only the float-text expectations that reflect a pure language-runtime formatting difference (never the float/integer round-trip type).</li>
+            </ul>
+        </div>
+        <div class="field"><div class="label">Status</div><span class="capsule status-not-started">Not started</span></div>
+        <div class="field"><div class="label">Completed</div><span class="placeholder">&mdash;</span></div>
+        <div class="field"><div class="label">Implementation notes</div><p class="placeholder">To be filled in as work progresses.</p></div>
+        <div class="field"><div class="label">Automated review</div><p class="placeholder">To be filled in by the automated review loop.</p></div>
+        <div class="field"><div class="label">Review comments</div><p class="placeholder">Awaiting human review.</p></div>
+    </div>
+
+    <!-- M5 -->
+    <div class="milestone" id="m5">
+        <div class="m-head">
+            <h3>M5 &middot; FITSBlock</h3>
+            <span class="capsule status-not-started">Not started</span>
+        </div>
+        <div class="field">
+            <div class="label">Goal</div>
+            Port the fixed-size 2880-byte block wrapper with its lazily-computed, cached structural flags &mdash; the
+            unit the file scanner groups into sections.
+        </div>
+        <div class="field">
+            <div class="label">Tasks</div>
+            <ul class="tasks">
+                <li class="task">Port <code>FITSBlock</code> to a class holding a <code>ReadOnlyMemory&lt;byte&gt;</code> block view and the parsing options, validating exactly <code>BlockSize</code> bytes at construction (throwing <code>InvalidBlockSize</code>).</li>
+                <li class="task">Implement the lazily-computed, cached flags <code>ContainsOnlyASCII</code>, <code>HasExtensionMarker</code> (ASCII and starts with <code>XTENSION=</code>), and <code>HasEndMarker</code> (first <code>END</code> record, honoring <code>AllowNulPadding</code>).</li>
+                <li class="task">Port the <code>ToString()</code> structural summary and document the inherited not-thread-safe caveat.</li>
+                <li class="task">Port the <code>FITSBlock</code> tests.</li>
+            </ul>
+        </div>
+        <div class="field"><div class="label">Status</div><span class="capsule status-not-started">Not started</span></div>
+        <div class="field"><div class="label">Completed</div><span class="placeholder">&mdash;</span></div>
+        <div class="field"><div class="label">Implementation notes</div><p class="placeholder">To be filled in as work progresses.</p></div>
+        <div class="field"><div class="label">Automated review</div><p class="placeholder">To be filled in by the automated review loop.</p></div>
+        <div class="field"><div class="label">Review comments</div><p class="placeholder">Awaiting human review.</p></div>
+    </div>
+
+    <div class="phase-banner">Phase 3 &middot; Property layer</div>
+
+    <!-- M6 -->
+    <div class="milestone" id="m6">
+        <div class="m-head">
+            <h3>M6 &middot; FITSProperty &mdash; model, construction &amp; parsing</h3>
+            <span class="capsule status-not-started">Not started</span>
+        </div>
+        <div class="field">
+            <div class="label">Goal</div>
+            Port the header-record model and its full <em>read</em> path: constructing a property from a raw card, from a
+            raw value field, or from a model, and merging continuation records. Serialization is deferred to M7, so this
+            milestone compiles and tests without any card-rendering code.
+        </div>
+        <div class="field">
+            <div class="label">Tasks</div>
+            <ul class="tasks">
+                <li class="task">Port the <code>FITSProperty</code> class shell: <code>Name</code> (private set), settable <code>Value</code> and <code>Comment</code> with the dirty-tracking hooks that call <code>section?.MarkNeedsSerialization()</code> only on real change, and the plain (non-weak) <code>Section</code> back-reference.</li>
+                <li class="task">Port the card parser: <code>init(data/string, options)</code> &mdash; keyword field, <code>HISTORY</code>/<code>COMMENT</code>/blank comment-only records, and value+comment records &mdash; enforcing the 80-char ASCII record contract.</li>
+                <li class="task">Port <code>parseValueAndComment</code>, <code>parseStringValueAndComment</code> (doubled-quote unescaping, significant-space rules, trailing-quote-junk handling), <code>parseNonStringValue</code> (logical / integer / float classification with <code>Int64</code>/<code>Double</code> overflow &rarr; <code>Unknown</code>), and the shared compiled integer/float regexes (incl. lowercase-exponent variant).</li>
+                <li class="task">Port the value-field initializer (<code>name</code>, <code>rawValue</code>, <code>comment</code>, options) and the model initializers (<code>name</code>+<code>FITSValue</code>+options, and the typed <code>logical</code>/<code>integer</code>/<code>float</code>/<code>string</code> conveniences), including <code>NormalizedKeyword</code> (used at construction).</li>
+                <li class="task">Port <code>Merge(with:)</code> (HISTORY/COMMENT append, CONTINUE long-string join requiring the trailing <code>&amp;</code>) and <code>MergedComment</code>; port <code>ToString()</code>.</li>
+                <li class="task">Port the construction / parsing / merge portions of the <code>FITSProperty</code> tests.</li>
+            </ul>
+        </div>
+        <div class="field"><div class="label">Status</div><span class="capsule status-not-started">Not started</span></div>
+        <div class="field"><div class="label">Completed</div><span class="placeholder">&mdash;</span></div>
+        <div class="field"><div class="label">Implementation notes</div><p class="placeholder">To be filled in as work progresses.</p></div>
+        <div class="field"><div class="label">Automated review</div><p class="placeholder">To be filled in by the automated review loop.</p></div>
+        <div class="field"><div class="label">Review comments</div><p class="placeholder">Awaiting human review.</p></div>
+    </div>
+
+    <!-- M7 -->
+    <div class="milestone" id="m7">
+        <div class="m-head">
+            <h3>M7 &middot; FITSProperty &mdash; serialization</h3>
+            <span class="capsule status-not-started">Not started</span>
+        </div>
+        <div class="field">
+            <div class="label">Goal</div>
+            Complete <code>FITSProperty</code> with the <em>write</em> path: rendering a property to one or more
+            standards-compliant 80-byte cards, including the long-string <code>CONTINUE</code> convention. This must land
+            before <code>FITSSection</code> (M8), which renders headers by serializing properties.
+        </div>
+        <div class="field">
+            <div class="label">Tasks</div>
+            <ul class="tasks">
+                <li class="task">Port <code>Serialized(options)</code> dispatch (commentary keywords, <code>CONTINUE</code>, string values, scalar values) and <code>NormalizedKeyword</code> coercion/validation under serialization options.</li>
+                <li class="task">Port the fixed-format renderers: scalar card (<code>= </code> indicator, right-justified value to byte 30, optional <code>/</code> comment), commentary cards (one per comment line), and <code>PadCard</code> (pad-or-fail at <code>CardSize</code>).</li>
+                <li class="task">Port the long-string path: <code>chunkedStringContent</code> (67-char capacity accounting for quotes and the <code>&amp;</code> flag), <code>continuationBody</code>, <code>serializedStringCards</code> (incl. the <code>XTENSION</code> 8-char minimum), and <code>serializedContinuedString</code> (comment-on-last-card vs trailing <code>CONTINUE ''</code>).</li>
+                <li class="task">Port <code>rightJustified</code> and <code>serializedComment</code>.</li>
+                <li class="task">Port the serialization portions of the <code>FITSProperty</code> tests; adapt only pure float-text formatting expectations.</li>
+            </ul>
+        </div>
+        <div class="field"><div class="label">Status</div><span class="capsule status-not-started">Not started</span></div>
+        <div class="field"><div class="label">Completed</div><span class="placeholder">&mdash;</span></div>
+        <div class="field"><div class="label">Implementation notes</div><p class="placeholder">To be filled in as work progresses.</p></div>
+        <div class="field"><div class="label">Automated review</div><p class="placeholder">To be filled in by the automated review loop.</p></div>
+        <div class="field"><div class="label">Review comments</div><p class="placeholder">Awaiting human review.</p></div>
+    </div>
+
+    <div class="phase-banner">Phase 4 &middot; Section &amp; file layer</div>
+
+    <!-- M8 -->
+    <div class="milestone" id="m8">
+        <div class="m-head">
+            <h3>M8 &middot; FITSSection</h3>
+            <span class="capsule status-not-started">Not started</span>
+        </div>
+        <div class="field">
+            <div class="label">Goal</div>
+            Port the contiguous run of blocks forming one logical unit (primary header, extension header, or data
+            segment): block accumulation and finalization, the property model with in-place mutation and dirty tracking,
+            and byte-for-byte-faithful serialization.
+        </div>
+        <div class="field">
+            <div class="label">Tasks</div>
+            <ul class="tasks">
+                <li class="task">Port <code>FITSSection</code> and its <code>Kind</code> enum, the block store, <code>IsFinalized</code>/<code>NeedsSerialization</code> flags, the optional data <code>Payload</code>, and the parsed <code>Properties</code>.</li>
+                <li class="task">Port the read/build constructors (kind+block; data-payload; kind+properties), <code>Append(block)</code> / <code>Append(padding)</code> with the header structural rules, and <code>Finalize(options)</code> (printability, record parsing/merging, single-<code>END</code> enforcement, unknown-property rejection, trailing-blank trimming, property back-reference attachment).</li>
+                <li class="task">Port the property-model API: keyword subscript, <code>Bitpix</code>/<code>Naxis</code>/<code>Naxis(n)</code>, <code>Append</code>/<code>Insert</code>/<code>SetProperty</code>/<code>RemoveProperties(named)</code>/<code>SetDataPayload</code>, and the guards (header-kind, reserved <code>END</code>, single-ownership attachable).</li>
+                <li class="task">Port serialization: <code>RetainedBytes</code>, <code>DataSize</code>, <code>SerializedByteCount</code>, <code>Data</code>/<code>SerializedData(options)</code>/<code>AppendSerializedData</code>, <code>RenderedHeader</code> (cards + <code>END</code> + block padding), <code>RenderedDataSegment</code>, and <code>PaddedToBlockBoundary</code>. Preserve clean-section byte-for-byte re-emission.</li>
+                <li class="task">Port <code>ReadAndMergeProperties</code> and both <code>ToString()</code> overloads; port the <code>FITSSection</code> tests.</li>
+            </ul>
+        </div>
+        <div class="field"><div class="label">Status</div><span class="capsule status-not-started">Not started</span></div>
+        <div class="field"><div class="label">Completed</div><span class="placeholder">&mdash;</span></div>
+        <div class="field"><div class="label">Implementation notes</div><p class="placeholder">To be filled in as work progresses.</p></div>
+        <div class="field"><div class="label">Automated review</div><p class="placeholder">To be filled in by the automated review loop.</p></div>
+        <div class="field"><div class="label">Review comments</div><p class="placeholder">Awaiting human review.</p></div>
+    </div>
+
+    <!-- M9 -->
+    <div class="milestone" id="m9">
+        <div class="m-head">
+            <h3>M9 &middot; FITSFile &mdash; parsing, geometry &amp; validation</h3>
+            <span class="capsule status-not-started">Not started</span>
+        </div>
+        <div class="field">
+            <div class="label">Goal</div>
+            Complete <code>FITSFile</code>'s <em>read</em> path: parse bytes/a file into sections, follow the declared
+            header geometry to consume data segments, and validate mandatory keywords. The build/write path is deferred
+            to M10, so this milestone compiles and tests with only the reader present.
+        </div>
+        <div class="field">
+            <div class="label">Tasks</div>
+            <ul class="tasks">
+                <li class="task">Port <code>init(data, options)</code> (empty-data guard, trailing-partial-block padding under leniency, chunk into blocks) and <code>init(url, options)</code> via <code>File.ReadAllBytes</code> with missing/directory vs unreadable classification.</li>
+                <li class="task">Port <code>Sections(from:options:)</code>: read header/extension up to <code>END</code>, finalize + validate, follow the geometry to consume exactly the implied data blocks, retain trailing blank padding, and enforce data-length match (unless <code>AllowDataLengthMismatch</code>).</li>
+                <li class="task">Port <code>ExpectedDataSize</code> (the <code>|BITPIX|/8 &times; GCOUNT &times; (PCOUNT + &prod;NAXISn)</code> formula, random-groups first-axis exclusion, overflow-throwing arithmetic, <code>MaxDataSize</code> ceiling, block rounding).</li>
+                <li class="task">Port <code>ValidateMandatoryKeywords</code> (SIMPLE/XTENSION, BITPIX set, NAXIS 0..999, NAXISn &ge; 0, PCOUNT/GCOUNT for extensions; order always enforced) and the <code>Validate(index, name, kind, extra)</code> helper.</li>
+                <li class="task">Port the read-side accessors (<code>Sections</code>, <code>Header</code>, <code>Extensions</code>) and <code>ToString()</code>; port the parsing / geometry / validation portions of the <code>FITSFile</code> tests, including parsing every sample file in <code>Test Files</code>.</li>
+            </ul>
+        </div>
+        <div class="field"><div class="label">Status</div><span class="capsule status-not-started">Not started</span></div>
+        <div class="field"><div class="label">Completed</div><span class="placeholder">&mdash;</span></div>
+        <div class="field"><div class="label">Implementation notes</div><p class="placeholder">To be filled in as work progresses.</p></div>
+        <div class="field"><div class="label">Automated review</div><p class="placeholder">To be filled in by the automated review loop.</p></div>
+        <div class="field"><div class="label">Review comments</div><p class="placeholder">Awaiting human review.</p></div>
+    </div>
+
+    <!-- M10 -->
+    <div class="milestone" id="m10">
+        <div class="m-head">
+            <h3>M10 &middot; FITSFile &mdash; construction, editing, serialization &amp; write</h3>
+            <span class="capsule status-not-started">Not started</span>
+        </div>
+        <div class="field">
+            <div class="label">Goal</div>
+            Complete <code>FITSFile</code>'s <em>write</em> path: building files and extensions from scratch, editing HDUs,
+            and validated serialization to bytes or disk &mdash; closing the read/write round trip.
+        </div>
+        <div class="field">
+            <div class="label">Tasks</div>
+            <ul class="tasks">
+                <li class="task">Port from-scratch construction: <code>init(bitpix, axes, data)</code>, the private <code>init(sections)</code>, and the mandatory-keyword builders (<code>mandatoryPrimaryProperties</code>, <code>mandatoryExtensionProperties</code>, <code>naxisProperties</code>).</li>
+                <li class="task">Port extension management: <code>AppendExtension(...)</code>, <code>DeclareExtensionsInPrimary</code> (<code>EXTEND = T</code> placement, overflow-safe index), <code>RemoveExtension(at)</code>, <code>MoveExtension(from,to)</code>, and the <code>HduUnits</code> grouping.</li>
+                <li class="task">Port geometry editing: <code>SetPrimaryData</code>, <code>SetExtensionData</code>, <code>ApplyGeometry</code> (in-place BITPIX/NAXIS, NAXISn re-insertion after NAXIS), <code>IsNaxisIndex</code>, and <code>SetDataSegment</code>.</li>
+                <li class="task">Port validated serialization: <code>ValidateForSerialization</code> (primary-first ordering, per-unit mandatory keywords, data-size match unless <code>AllowDataSizeMismatch</code>), <code>Data</code>/<code>SerializedData(options)</code>, and <code>Write(to, options)</code> (atomic write, <code>CannotWriteFile</code> on failure).</li>
+                <li class="task">Port the construction / editing / serialization / write portions of the <code>FITSFile</code> tests.</li>
+            </ul>
+        </div>
+        <div class="field"><div class="label">Status</div><span class="capsule status-not-started">Not started</span></div>
+        <div class="field"><div class="label">Completed</div><span class="placeholder">&mdash;</span></div>
+        <div class="field"><div class="label">Implementation notes</div><p class="placeholder">To be filled in as work progresses.</p></div>
+        <div class="field"><div class="label">Automated review</div><p class="placeholder">To be filled in by the automated review loop.</p></div>
+        <div class="field"><div class="label">Review comments</div><p class="placeholder">Awaiting human review.</p></div>
+    </div>
+
+    <div class="phase-banner">Phase 5 &middot; Integration &amp; finalization</div>
+
+    <!-- M11 -->
+    <div class="milestone" id="m11">
+        <div class="m-head">
+            <h3>M11 &middot; Integration tests &amp; sample-file parity</h3>
+            <span class="capsule status-not-started">Not started</span>
+        </div>
+        <div class="field">
+            <div class="label">Goal</div>
+            Port the end-to-end tests spanning the whole read/write pipeline and confirm the ported library behaves
+            identically on the real sample FITS files.
+        </div>
+        <div class="field">
+            <div class="label">Tasks</div>
+            <ul class="tasks">
+                <li class="task">Port <code>Integration.swift</code>: image-file full lifecycle (build &rarr; write &rarr; reread &rarr; reshape &rarr; rewrite), table-extension round-trip, multi-HDU edit preserving untouched sections byte-for-byte, build/remove/reorder extensions, and strict-vs-lenient serialization error paths &mdash; using temp files that are cleaned up.</li>
+                <li class="task">Confirm every file under <code>Test Files</code> parses under strict and/or lenient options and that an unmodified parse re-serializes byte-for-byte (matching the original bytes) where the Swift suite asserts it.</li>
+                <li class="task">Cross-check parity: the ported suite should reach ~231 tests (adjusted only for genuine Swift/.NET idiom differences); record any intentionally dropped or split tests in the implementation notes.</li>
+            </ul>
+        </div>
+        <div class="field"><div class="label">Status</div><span class="capsule status-not-started">Not started</span></div>
+        <div class="field"><div class="label">Completed</div><span class="placeholder">&mdash;</span></div>
+        <div class="field"><div class="label">Implementation notes</div><p class="placeholder">To be filled in as work progresses.</p></div>
+        <div class="field"><div class="label">Automated review</div><p class="placeholder">To be filled in by the automated review loop.</p></div>
+        <div class="field"><div class="label">Review comments</div><p class="placeholder">Awaiting human review.</p></div>
+    </div>
+
+    <!-- M12 -->
+    <div class="milestone" id="m12">
+        <div class="m-head">
+            <h3>M12 &middot; Finalization &mdash; clean build, README, CI parity</h3>
+            <span class="capsule status-not-started">Not started</span>
+        </div>
+        <div class="field">
+            <div class="label">Goal</div>
+            Bring the port to a shippable state: a warnings-clean build in both configurations, the full suite green,
+            the README updated, and the CI workflow satisfied.
+        </div>
+        <div class="field">
+            <div class="label">Tasks</div>
+            <ul class="tasks">
+                <li class="task">Build <code>-c Debug</code> and <code>-c Release</code> with zero warnings/errors (warnings-as-errors, nullable clean, overflow-checked); confirm no <code>NotImplemented</code>/TODO placeholders remain.</li>
+                <li class="task">Run <code>dotnet test DotNetFITS.slnx</code> green in Debug and Release; verify the final test count and parity summary.</li>
+                <li class="task">Update <code>README.md</code> (About, usage examples, and any documented Swift/.NET behavior differences such as float text formatting).</li>
+                <li class="task">Confirm <code>DotNetFITS.slnx</code> and the two <code>.csproj</code> files are in sync and that the <code>ci-win.yaml</code> workflow (which runs <code>dotnet test</code> on the solution in Debug and Release) will pass; note nothing platform-specific was introduced.</li>
+            </ul>
+        </div>
+        <div class="field"><div class="label">Status</div><span class="capsule status-not-started">Not started</span></div>
+        <div class="field"><div class="label">Completed</div><span class="placeholder">&mdash;</span></div>
+        <div class="field"><div class="label">Implementation notes</div><p class="placeholder">To be filled in as work progresses.</p></div>
+        <div class="field"><div class="label">Automated review</div><p class="placeholder">To be filled in by the automated review loop.</p></div>
+        <div class="field"><div class="label">Review comments</div><p class="placeholder">Awaiting human review.</p></div>
+    </div>
+
+    <!-- ============================ APPENDIX ============================ -->
+    <h2 id="appendix">Appendix</h2>
+
+    <h3>Dependency order</h3>
+    <p>Each milestone depends only on earlier ones, so the build stays green at every step:</p>
+    <pre><code>constants (M1)
+  &rarr; FITSException, options (M2)
+    &rarr; charset/string/memory helpers, test utils (M3)
+      &rarr; FITSValue (M4)
+        &rarr; FITSBlock (M5)
+        &rarr; FITSProperty parse (M6) &rarr; FITSProperty serialize (M7)
+          &rarr; FITSSection (M8)   [needs property serialize]
+            &rarr; FITSFile parse (M9) &rarr; FITSFile build/write (M10)
+              &rarr; integration (M11) &rarr; finalization (M12)</code></pre>
+    <p>Splitting <code>FITSProperty</code> (M6/M7) and <code>FITSFile</code> (M1/M9/M10) by concern is safe because a
+        later-milestone method is never referenced by earlier code: <code>FITSSection</code> is the first caller of
+        property serialization, and nothing calls the file build/write path before M10.</p>
+
+    <h3>Swift Testing &rarr; xUnit v3 mapping</h3>
+    <div class="table-scroll">
+    <table>
+        <thead><tr><th>Swift Testing</th><th>xUnit v3</th><th>Notes</th></tr></thead>
+        <tbody>
+            <tr><td><code>@Test func x() async throws</code></td><td><code>[Fact] public void X()</code></td><td>231 total; synchronous in C#</td></tr>
+            <tr><td><code>#expect(a == b)</code></td><td><code>Assert.Equal(b, a)</code></td><td>~682 <code>#expect</code> uses</td></tr>
+            <tr><td><code>#expect(cond)</code></td><td><code>Assert.True(cond)</code></td><td></td></tr>
+            <tr><td><code>try #require(opt)</code></td><td><code>Assert.NotNull(opt)</code> then use</td><td>~94 uses; unwrap-or-fail</td></tr>
+            <tr><td><code>#expect(throws: FITSError.self){ }</code></td><td><code>Assert.Throws&lt;FITSException&gt;(() =&gt; ...)</code></td><td>~102 uses</td></tr>
+            <tr><td><code>#expect(throws: Never.self){ }</code></td><td>call directly (fails if it throws)</td><td>~24 uses</td></tr>
+            <tr><td><code>@testable import SwiftFITS</code></td><td><code>InternalsVisibleTo</code></td><td>already configured</td></tr>
+            <tr><td><code>struct Test_X</code> / <code>class</code></td><td>one test class per source type</td><td>no <code>@Suite</code>, no parameterized tests</td></tr>
+        </tbody>
+    </table>
+    </div>
+
+    <h3>Build &amp; test commands</h3>
+    <pre><code># from the repository root
+dotnet build DotNetFITS.slnx -c Debug
+dotnet build DotNetFITS.slnx -c Release
+dotnet test  DotNetFITS.slnx -c Debug
+dotnet test  DotNetFITS.slnx -c Release</code></pre>
+
+    <div class="footer">
+        Living document &mdash; the <code>/xs:implement</code> command updates each milestone's <em>Status</em>,
+        <em>Completed</em>, <em>Implementation notes</em>, <em>Automated review</em>, and <em>Review comments</em> in
+        place as work progresses, keeping the table-of-contents status capsules in sync.
+    </div>
+
+</div>
+</body>
+</html>
