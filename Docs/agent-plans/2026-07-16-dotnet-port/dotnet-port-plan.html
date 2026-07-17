@@ -207,13 +207,17 @@
             parse/format and ordinal string comparisons. This is a correctness requirement of the format.</li>
         <li><strong>Invariant-culture enforcement:</strong> the rule above is enforced by a repo-root
             <code>.editorconfig</code> that raises the .NET globalization analyzers (<code>CA1305</code>,
-            <code>CA1304</code>, <code>CA1311</code>, <code>CA1310</code>) to build errors, so any culture-sensitive
-            format/parse/casing/comparison must state an explicit invariant/ordinal choice. <strong>Caveat:</strong>
-            these analyzers do <em>not</em> catch culture-sensitive string <em>interpolation</em> of numbers
-            (<code>$"{value}"</code>), and they enforce explicitness rather than the specific invariant/ordinal
-            selection. So numbers must never be raw-interpolated, and every milestone that formats numbers must add
-            tests that run under a non-invariant culture (e.g. <code>fr-FR</code>) to catch regressions the build
-            cannot see.</li>
+            <code>CA1304</code>, <code>CA1311</code>, <code>CA1310</code>, <code>CA1309</code>) to build errors, so
+            any culture-sensitive format/parse/casing/comparison must state an explicit invariant/ordinal choice.
+            <strong>Caveat:</strong> these analyzers do <em>not</em> catch culture-sensitive string
+            <em>interpolation</em> of numbers (<code>$"{value}"</code>), and they enforce explicitness rather than
+            the specific invariant/ordinal selection. So numbers must never be raw-interpolated: format them
+            explicitly with <code>CultureInfo.InvariantCulture</code>. A culture-swap test (run under a
+            non-invariant culture such as <code>fr-FR</code>, asserting the <em>exact</em> expected string) is
+            required wherever the formatting is actually culture-<em>sensitive</em> &mdash; floating-point/decimal
+            values, or any grouped numeric format &mdash; which first arises with float serialization in M4. A plain
+            integer in the default format is culture-robust (no digit grouping in any culture), so its explicit
+            invariant formatting is defensive only and needs no required culture-swap test.</li>
         <li><strong>Constants:</strong> the FITS size constants live on <code>FITSFile</code> as
             <code>public const</code> (<code>BlockSize = 2880</code>, <code>CardSize = 80</code>,
             <code>KeywordLength = 8</code>, <code>FixedValueFieldWidth = 20</code>, <code>MaxDataSize = 1L &lt;&lt; 53</code>)
@@ -309,7 +313,7 @@
         <div class="phase">Phase 1 &middot; Foundations</div>
         <ol>
             <li><a href="#m1"><span class="num">M1</span> Project bootstrap, conventions &amp; shared constants</a> <span class="capsule status-completed">Completed</span></li>
-            <li><a href="#m2"><span class="num">M2</span> Errors &amp; option sets</a> <span class="capsule status-not-started">Not started</span></li>
+            <li><a href="#m2"><span class="num">M2</span> Errors &amp; option sets</a> <span class="capsule status-completed">Completed</span></li>
             <li><a href="#m3"><span class="num">M3</span> Low-level helpers &amp; test infrastructure</a> <span class="capsule status-not-started">Not started</span></li>
         </ol>
 
@@ -473,7 +477,7 @@
     <div class="milestone" id="m2">
         <div class="m-head">
             <h3>M2 &middot; Errors &amp; option sets</h3>
-            <span class="capsule status-not-started">Not started</span>
+            <span class="capsule status-completed">Completed</span>
         </div>
         <div class="field">
             <div class="label">Goal</div>
@@ -490,11 +494,85 @@
                 <li class="task">Preserve full doc comments (public and internal members).</li>
             </ul>
         </div>
-        <div class="field"><div class="label">Status</div><span class="capsule status-not-started">Not started</span></div>
-        <div class="field"><div class="label">Completed</div><span class="placeholder">&mdash;</span></div>
-        <div class="field"><div class="label">Implementation notes</div><p class="placeholder">To be filled in as work progresses.</p></div>
-        <div class="field"><div class="label">Automated review</div><p class="placeholder">To be filled in by the automated review loop.</p></div>
-        <div class="field"><div class="label">Review comments</div><p class="placeholder">Awaiting human review.</p></div>
+        <div class="field"><div class="label">Status</div><span class="capsule status-completed">Completed</span></div>
+        <div class="field"><div class="label">Completed</div>2026-07-18</div>
+        <div class="field">
+            <div class="label">Implementation notes</div>
+            <p>Implemented with TDD (each logic-bearing unit written test-first, watched fail, then made to pass; the
+                pure-data enums verified by guard tests).</p>
+            <ul>
+                <li><strong>FITSException + FITSErrorKind.</strong> A single <code>FITSException : Exception</code>
+                    carrying a <code>FITSErrorKind Kind</code> discriminator, constructed through 11 static factories
+                    over a <code>private</code> constructor (no public constructors). Messages are
+                    <code>"FITS Error: "</code> + the per-case text, matching Swift's <code>errorDescription</code>
+                    exactly. Swift's <code>URL</code> payloads become <code>string</code> paths (the message drops the
+                    <code>file://</code> scheme &mdash; plan-sanctioned). The single numeric payload
+                    (<code>InvalidBlockSize</code>) is formatted with <code>CultureInfo.InvariantCulture</code>.
+                    Factories are expression-bodied one-liners.</li>
+                <li><strong>Option sets.</strong> Both <code>OptionSet</code>s become <code>[Flags]</code> enums: the raw
+                    bitmask is the underlying <code>int</code> and Swift's <code>init(rawValue:)</code> maps to a cast.
+                    <code>None = 0</code> was added (idiomatic .NET); serialization <code>Strict = None = 0</code>
+                    mirrors Swift's <code>strict = []</code>. <code>FITSParsingOptions</code> has all 14 flags
+                    (<code>1&lt;&lt;0</code>..<code>1&lt;&lt;13</code>), with <code>Strict</code> = the 3 spec
+                    conveniences and <code>Lenient</code> = all 14.</li>
+                <li><strong>Tests.</strong> Ported the <code>FITSError</code> and <code>FITSSerializationOptions</code>
+                    tests; added (during the review loop) a <code>FITSParsingOptions</code> guard test and a
+                    <code>Kind</code> assertion, both beyond the Swift suite (see Automated review). 18 tests total (9
+                    from M2), green in Debug and Release.</li>
+            </ul>
+            <p><strong>Review follow-up (applied).</strong> After the maintainer's review:</p>
+            <ul>
+                <li>Declared <code>FITSException</code> <code>sealed</code> (the single-error-type design is not a
+                    hierarchy).</li>
+                <li>Aligned the <code>|</code> operators of <code>FITSParsingOptions.Lenient</code> with its
+                    <code>=</code>.</li>
+                <li>Tabular-aligned the value columns of the <code>FITSException</code> factory test's case tuples,
+                    with the comma hugging each value (the padding style used elsewhere in M1/M2).</li>
+                <li>Confirmed the expression-bodied factories (kept as-is).</li>
+            </ul>
+        </div>
+        <div class="field">
+            <div class="label">Automated review</div>
+            <p>Three independent fresh-context rounds; converged on round 3 (no Critical/High/Medium).</p>
+            <p><strong>Round 1</strong> &mdash; 2 Medium + Info:</p>
+            <ul>
+                <li><em><code>FITSParsingOptions</code> (14 hand-assigned bits + presets) had no test</em> &mdash;
+                    <strong>Medium</strong> &mdash; <strong>Fixed</strong>: added <code>FITSParsingOptionsTests</code>
+                    asserting each bit against independent literals and the preset composition.</li>
+                <li><em>The <code>InvalidBlockSize</code> culture-swap test cannot fail (an <code>int</code> never
+                    groups)</em> &mdash; <strong>Medium</strong> &mdash; <strong>Fixed</strong>: kept the test
+                    (no-delete policy) with honest <code>&lt;remarks&gt;</code> scoping it to a grouped-format guard,
+                    and refined the plan's culture convention so the meaningful decimal-separator guards land with
+                    float formatting in M4.</li>
+                <li><em>Strict/None aliasing; URL&rarr;string text; not <code>sealed</code>; no inner-exception
+                    overload; tuple-array alignment</em> &mdash; Low/Info &mdash; Deferred.</li>
+            </ul>
+            <p><strong>Round 2</strong> &mdash; 1 Medium + Low/Info:</p>
+            <ul>
+                <li><em>The <code>Kind</code> discriminator (the port's new API) had no test</em> &mdash;
+                    <strong>Medium</strong> &mdash; <strong>Fixed</strong>: extended the exception test to a 3-tuple
+                    asserting each factory's <code>Kind</code>.</li>
+                <li><em>Three <code>FITSSerializationOptions</code> tests are tautological (faithful 1:1 Swift ports;
+                    real coverage is in the other two)</em> &mdash; Low &mdash; Deferred.</li>
+            </ul>
+            <p><strong>Round 3</strong> &mdash; converged; no Critical/High/Medium. Info only: the tautological
+                <code>OptionSetAlgebra</code> test (faithful port) and the <code>URL</code>&rarr;<code>string</code>
+                message text (by design).</p>
+        </div>
+        <div class="field">
+            <div class="label">Review comments</div>
+            <ol>
+                <li><strong>FITSParsingOptions.Lenient.</strong> Align the <code>|</code> operators of the multi-line
+                    preset composition with the <code>=</code>.</li>
+                <li><strong>FITSException factory test.</strong> Tabular-align the value columns of the case tuples.</li>
+                <li><strong>Seal FITSException.</strong> Declare the exception type <code>sealed</code>.</li>
+                <li><strong>Expression-bodied factories.</strong> Approved &mdash; keep them.</li>
+                <li><strong>Question &mdash; M1 alignment approach.</strong> M1 aligns <code>=</code> across consecutive
+                    assignments and tabular-aligns columns in data/assert blocks by padding the leading operand (e.g.
+                    the constants test and the M2 bit-value test); the <code>FITSException</code> tuple array had been
+                    left unaligned, which items 1&ndash;2 correct.</li>
+            </ol>
+        </div>
     </div>
 
     <!-- M3 -->
