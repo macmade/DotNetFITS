@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="DotNetFITS/DotNetFITS.csproj" />
+  <Project Path="DotNetFITSTests/DotNetFITSTests.csproj" />
+</Solution>
