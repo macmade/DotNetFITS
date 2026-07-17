@@ -1,0 +1,20 @@
+name: ci-win
+on:   [push]
+jobs:
+    ci:
+        runs-on: windows-2025-vs2026
+        strategy:
+            matrix:
+                run-config:
+                    - { platform: 'Any CPU', toolset: 'x64', configuration: 'Debug',   solution: 'DotNetFITS.slnx' }
+                    - { platform: 'Any CPU', toolset: 'x64', configuration: 'Release', solution: 'DotNetFITS.slnx' }
+        steps:
+            
+            - uses: actions/checkout@v6
+              with:
+                submodules: 'recursive'
+                
+            - uses: macmade/action-msbuild@v1.0.0
+
+            - name: Test
+              run:  dotnet test ${{ matrix.run-config[ 'solution' ] }} --configuration ${{ matrix.run-config[ 'configuration' ] }}
