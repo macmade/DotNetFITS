@@ -332,7 +332,7 @@
         <div class="phase">Phase 4 &middot; Section &amp; file layer</div>
         <ol>
             <li><a href="#m8"><span class="num">M8</span> FITSSection</a> <span class="capsule status-completed">Completed</span></li>
-            <li><a href="#m9"><span class="num">M9</span> FITSFile &mdash; parsing, geometry &amp; validation</a> <span class="capsule status-not-started">Not started</span></li>
+            <li><a href="#m9"><span class="num">M9</span> FITSFile &mdash; parsing, geometry &amp; validation</a> <span class="capsule status-completed">Completed</span></li>
             <li><a href="#m10"><span class="num">M10</span> FITSFile &mdash; construction, editing, serialization &amp; write</a> <span class="capsule status-not-started">Not started</span></li>
         </ol>
 
@@ -1397,7 +1397,7 @@
     <div class="milestone" id="m9">
         <div class="m-head">
             <h3>M9 &middot; FITSFile &mdash; parsing, geometry &amp; validation</h3>
-            <span class="capsule status-not-started">Not started</span>
+            <span class="capsule status-completed">Completed</span>
         </div>
         <div class="field">
             <div class="label">Goal</div>
@@ -1415,11 +1415,128 @@
                 <li class="task">Port the read-side accessors (<code>Sections</code>, <code>Header</code>, <code>Extensions</code>) and <code>ToString()</code>; port the parsing / geometry / validation portions of the <code>FITSFile</code> tests, including parsing every sample file in <code>Test Files</code>.</li>
             </ul>
         </div>
-        <div class="field"><div class="label">Status</div><span class="capsule status-not-started">Not started</span></div>
-        <div class="field"><div class="label">Completed</div><span class="placeholder">&mdash;</span></div>
-        <div class="field"><div class="label">Implementation notes</div><p class="placeholder">To be filled in as work progresses.</p></div>
-        <div class="field"><div class="label">Automated review</div><p class="placeholder">To be filled in by the automated review loop.</p></div>
-        <div class="field"><div class="label">Review comments</div><p class="placeholder">Awaiting human review.</p></div>
+        <div class="field"><div class="label">Status</div><span class="capsule status-completed">Completed</span></div>
+        <div class="field"><div class="label">Completed</div>2026-07-18</div>
+        <div class="field">
+            <div class="label">Implementation notes</div>
+            <p>Implemented with TDD &mdash; the test suite written first and watched fail at compile level (the
+                constants-only <code>FITSFile</code> had no read API), then made to pass. Green in Debug <em>and</em>
+                Release (0 warnings under warnings-as-errors, nullable and overflow checks active); the suite grew from
+                185 to <strong>231 tests</strong> (46 added). <code>ParseAllTestFiles</code> parses every real sample
+                file under <code>Test Files</code>.</p>
+            <ul>
+                <li><strong>Constructors.</strong> <code>FITSFile( ReadOnlyMemory&lt; byte &gt; data, options )</code>
+                    (empty-data guard, trailing-partial-block zero-padding under
+                    <code>AllowTrailingPartialBlock</code>, chunk into blocks) and
+                    <code>FITSFile( string path, options )</code> (a URL becomes a file path). The path constructor
+                    chains to the data constructor via <code>: this( ReadFileBytes( path ), options )</code>.
+                    <code>ReadFileBytes</code> classifies a failure <em>only after</em> the read fails (no
+                    time-of-check/time-of-use gap): a missing path or a directory is <code>InvalidFileURL</code>,
+                    anything else <code>CannotReadFile</code>. It uses a broad <code>catch</code> because the
+                    classification is by post-hoc path state, not exception type (<code>CA1031</code> is not enabled;
+                    the build is warning-clean).</li>
+                <li><strong>Geometry-driven splitting.</strong> <code>SectionsFrom</code> accumulates header/extension
+                    blocks up to the <code>END</code> block, finalizes and validates each, then consumes <em>exactly</em>
+                    the number of data blocks the geometry implies before reading the next header/extension &mdash; so an
+                    ASCII data block that merely resembles an <code>XTENSION</code> is consumed as data, not mis-split.
+                    Blank blocks after the final HDU are retained as trailing padding; a data-length shortfall is
+                    rejected unless <code>AllowDataLengthMismatch</code> is set. The first section is the primary header,
+                    the rest extensions.</li>
+                <li><strong>Data-size geometry.</strong> <code>ExpectedDataSize</code> reproduces the FITS 4.0 formula
+                    <code>|BITPIX|/8 &times; GCOUNT &times; ( PCOUNT + &prod;NAXISn )</code> with first-wins keyword
+                    resolution (a <code>TryAdd</code> dictionary), the random-groups first-axis exclusion, and the
+                    <code>MaxDataSize</code> ceiling, rounding up to whole blocks. Overflow is surfaced as a
+                    <code>FITSException</code> by <code>CheckedMultiply</code>/<code>CheckedAdd</code> (which catch
+                    <code>OverflowException</code> &mdash; the project is overflow-checked &mdash; the analog of the
+                    original's reporting-overflow arithmetic). Every size is carried in <code>long</code> end-to-end, so
+                    a huge-but-valid geometry reports its size intact (pinned by the ~1e13-block test).</li>
+                <li><strong>Mandatory keywords.</strong> <code>ValidateMandatoryKeywords</code> and the
+                    <code>Validate</code> helper enforce the name, order, type and value of
+                    <code>SIMPLE</code>/<code>XTENSION</code>, <code>BITPIX</code> (one of the six standard values),
+                    <code>NAXIS</code> (0&ndash;999), each <code>NAXISn</code> (&ge; 0), and <code>PCOUNT</code>/
+                    <code>GCOUNT</code> for extensions. Order is always enforced, even under lenient options. Kept
+                    <code>private static</code> (the original's <code>internal</code> marking has no external consumer;
+                    the read tests drive it through the constructor). The optional value check is an
+                    <code>Action&lt; FITSValue &gt;?</code>. <code>Math.Abs( bitpix )</code> and the
+                    <code>( int )naxis</code> casts cannot trap, since both run only after validation (BITPIX in the
+                    six-value set, NAXIS clamped to 0&ndash;999).</li>
+                <li><strong>Accessors.</strong> <code>Sections</code> (an <code>IReadOnlyList</code> over the mutable
+                    <code>List</code> backing the write layer will edit), <code>Header</code>, <code>Extensions</code>
+                    (a filtered copy), and <code>ToString()</code> reproducing the indentable multi-line file summary.</li>
+                <li><strong>Tests.</strong> 46 added. The 6 tests that also assert an exact serializer round-trip
+                    (<code>nonAsciiDataSegmentParsesWithoutClassification</code>, <code>trailingPaddingAfterEndIsNotData</code>,
+                    <code>multiHduFileSplitsByGeometry</code>, <code>trailingPartialBlockIsRejectedWhenStrictPaddedWhenLenient</code>,
+                    <code>nulPaddedHeaderIsRejectedWhenStrictParsedWhenLenient</code>, <code>orphanedContinueFileRoundTrips</code>)
+                    were ported with their <em>parse</em> assertions only; the <code>file.data</code> round-trips are
+                    deferred to the write layer (M10). <code>serializationConstants</code> was not re-ported &mdash; the
+                    existing <code>SizeConstantsMatchTheFITSStandard</code> already covers it. One test
+                    (<code>UnreadableFileThrowsCannotReadFile</code>) is platform-guarded: it sets POSIX permissions via
+                    <code>File.SetUnixFileMode</code> and asserts only on non-Windows for an unprivileged user (verified
+                    it genuinely runs on the macOS dev box, uid 501); the production <code>ReadFileBytes</code> is
+                    cross-platform.</li>
+            </ul>
+            <p><strong>Review follow-up (applied).</strong> Per the maintainer's review (finding 1): the read-only
+                collection accessors now return a snapshot copy rather than the live backing list, so a caller cannot
+                downcast to <code>List</code> and mutate the file's or section's state. Changed
+                <code>FITSFile.Sections</code> and &mdash; applying the fix everywhere appropriate &mdash;
+                <code>FITSSection.Properties</code> (an M8 type) to return <code>.ToList()</code>;
+                <code>Extensions</code> already returned a filtered copy. Captured <code>header.Properties</code> once in
+                <code>SectionsFrom</code> so a section's properties are copied only once per parse, and documented the
+                snapshot behavior on both accessors. The copy is of the list container only &mdash; the shared element
+                references keep in-place property editing and dirty-tracking intact. Re-verified green (231 tests, 0
+                warnings) in Debug and Release.</p>
+        </div>
+        <div class="field">
+            <div class="label">Automated review</div>
+            <p>One independent fresh-context round; converged immediately (no Critical/High/Medium findings). The reviewer
+                compared the read path method-by-method against the original, verified the 0-warning build and 231-test
+                suite in both configurations, and confirmed the load-bearing semantics: geometry-driven data consumption
+                takes precedence over the trailing-blank check; first-wins geometry resolution is real (the
+                <code>TryAdd</code> dictionary and the positional validator agree because indices 0&ndash;2 are fixed);
+                overflow surfaces as a <code>FITSException</code> at each arithmetic site; <code>Math.Abs( bitpix )</code>
+                and the <code>( int )naxis</code> casts cannot trap (both run post-validation); the 6 round-trip tests
+                were correctly ported parse-only; and there are no regressions (the size constants and every existing
+                test are intact). It also empirically confirmed the platform-guarded test runs its assertion as an
+                unprivileged user.</p>
+            <ul>
+                <li><em><code>Sections</code>/<code>Header</code> hand out the live backing list (a caller could
+                    downcast to <code>List</code> and mutate it), where the original exposes a value-type copy</em>
+                    &mdash; Low &mdash; Deferred (surfaced to the maintainer): the same idiom the codebase already uses
+                    for <code>FITSSection.Properties</code> (established earlier and accepted), so it is consistent and
+                    not a regression; <code>Extensions</code> already returns a filtered <code>.ToList()</code> copy, a
+                    minor internal inconsistency. Strict immutability parity would return
+                    <code>AsReadOnly()</code>/<code>.ToList()</code> from <code>Sections</code> &mdash; which would argue
+                    for the same change to <code>FITSSection.Properties</code>, a cross-cutting decision.</li>
+                <li><em>The local function <code>IntegerOrDefault</code> carries no comment</em> &mdash; Info &mdash;
+                    Deferred: local functions cannot take a <code>///</code> doc without a warning, and the enclosing
+                    block comment already explains the keyword dictionary.</li>
+                <li><em>The <code>Description</code> test builds a synthetic header rather than loading a named real
+                    sample file</em> &mdash; Info &mdash; Deferred: a sound adaptation that decouples the test from a
+                    heavy fixture; the asserted behavior (non-empty, differs from the qualified type name) is
+                    equivalent.</li>
+            </ul>
+        </div>
+        <div class="field">
+            <div class="label">Review comments</div>
+            <ol>
+                <li><strong>Live-list accessors (finding 1).</strong> Return a copy from the read-only collection
+                    accessors rather than the live backing list, so a caller cannot downcast and mutate the underlying
+                    state. Apply the change everywhere it is appropriate across the codebase, not only
+                    <code>FITSFile.Sections</code>. (Findings 2&ndash;3, Info, were left as-is.)</li>
+                <li><strong>Read-only accessor versus a copy.</strong> Why return an <code>IReadOnlyList</code> from an
+                    accessor that already returns a copy? The copy alone protects the model, so the read-only type on
+                    top of it is redundant. (A genuine design question raised after the copy change; being discussed
+                    &mdash; no code change until the approach is settled.)</li>
+                <li><strong>Copy affirmed; which return type?</strong> A copy is preferable and more faithful.
+                    Follow-up: why is returning <code>List</code> discouraged, and would <code>IList</code> be
+                    appropriate? (Discussion ongoing; no code change until settled.)</li>
+                <li><strong>Resolution.</strong> Keep the current design &mdash; <code>.ToList()</code> returned as
+                    <code>IReadOnlyList&lt; T &gt;</code> &mdash; a protected snapshot whose read-only type also
+                    prevents a silent no-op mutation on the copy and matches the original's external get-only contract
+                    (<code>List</code> over-commits the API per CA1002; <code>IList</code> would reintroduce the
+                    footgun). No further code change.</li>
+            </ol>
+        </div>
     </div>
 
     <!-- M10 -->

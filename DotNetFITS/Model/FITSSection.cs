@@ -109,9 +109,13 @@ public sealed class FITSSection
     /// </summary>
     /// <remarks>
     /// The <c>END</c> marker is excluded from this list, but it round-trips through
-    /// <see cref="Data"/> since the raw block bytes are retained.
+    /// <see cref="Data"/> since the raw block bytes are retained. The returned list
+    /// is a snapshot copy, so mutating it does not change the section; use
+    /// <see cref="Append(FITSProperty)"/>, <see cref="Insert(FITSProperty, int)"/>,
+    /// <see cref="SetProperty(FITSProperty)"/> or
+    /// <see cref="RemoveProperties(string)"/> to edit the section's properties.
     /// </remarks>
-    public IReadOnlyList< FITSProperty > Properties => this.PropertyList;
+    public IReadOnlyList< FITSProperty > Properties => this.PropertyList.ToList();
 
     /// <summary>
     /// The first property whose keyword name matches, or <c>null</c> if none does.
