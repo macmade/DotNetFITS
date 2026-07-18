@@ -33,10 +33,9 @@ namespace DotNetFITSTests;
 /// Unit tests for the <see cref="ByteMemoryExtensions"/> helpers.
 /// </summary>
 /// <remarks>
-/// Ports the Swift <c>Test_Data</c> suite (adapted to
-/// <see cref="ReadOnlyMemory{Byte}"/>), and adds guard tests for the helpers the
-/// Swift <c>Data</c> suite did not exercise directly: <c>IsBlank</c>,
-/// <c>ContainsOnlyFITSPrintable</c> and the C#-only <c>StartsWith</c>.
+/// Exercises the <see cref="ByteMemoryExtensions"/> helpers on
+/// <see cref="ReadOnlyMemory{Byte}"/>, including guard tests for <c>IsBlank</c>,
+/// <c>ContainsOnlyFITSPrintable</c> and <c>StartsWith</c>.
 /// </remarks>
 public class ByteMemoryExtensionsTests
 {
@@ -129,10 +128,9 @@ public class ByteMemoryExtensionsTests
     /// correct bytes.
     /// </summary>
     /// <remarks>
-    /// The C# counterpart of the Swift non-zero-based-slice test: because
-    /// <see cref="ReadOnlyMemory{T}.Slice(int, int)"/> re-bases to index zero, the
-    /// Swift gotcha disappears - this pins that the offset arithmetic stays
-    /// correct anyway.
+    /// Because <see cref="ReadOnlyMemory{T}.Slice(int, int)"/> re-bases a slice to
+    /// index zero, this pins that the chunk offset arithmetic stays correct for a
+    /// slice that does not start at the buffer's beginning.
     /// </remarks>
     [ Fact ]
     public void ChunkedHandlesASubSliceIndependentlyOfItsOffset()

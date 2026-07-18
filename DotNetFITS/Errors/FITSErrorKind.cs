@@ -28,9 +28,8 @@ namespace DotNetFITS;
 /// Identifies which kind of error a <see cref="FITSException"/> represents.
 /// </summary>
 /// <remarks>
-/// The discriminator ports the cases of the Swift <c>FITSError</c> enum, so a
-/// consumer can branch on the error kind after catching a
-/// <see cref="FITSException"/>.
+/// A discriminator a consumer can branch on to identify which error a caught
+/// <see cref="FITSException"/> represents.
 /// </remarks>
 public enum FITSErrorKind
 {

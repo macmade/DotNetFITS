@@ -22,31 +22,38 @@
  * THE SOFTWARE.
  ******************************************************************************/
 
-using System;
-
-namespace DotNetFITSTests;
+namespace DotNetFITS;
 
 /// <summary>
-/// A generic failure used by the test helpers for their own preconditions.
+/// The type discriminator of a <see cref="FITSValue"/>, independent of any
+/// payload.
 /// </summary>
 /// <remarks>
-/// Test-only on purpose: the library's public <see cref="DotNetFITS.FITSException"/>
-/// must contain only errors the library itself emits, so the fixtures signal
-/// their own misuse with this dedicated type instead.
+/// Used to compare or validate a value's type without unwrapping it. The member
+/// names double as the human-readable descriptions
+/// (<see cref="object.ToString"/> returns them verbatim).
 /// </remarks>
-internal sealed class TestError : Exception
+public enum FITSValueKind
 {
-    /// <summary>
-    /// Initializes a new instance describing an invalid precondition.
-    /// </summary>
-    /// <param name="reason">A description of the precondition that failed.</param>
-    private TestError( string reason ) : base( reason )
-    {}
+    /// <summary>The kind of a record that carries no value (e.g. <c>COMMENT</c>, <c>HISTORY</c>).</summary>
+    /// <remarks>The enum's zero value, so <c>default(FITSValue)</c> is a neutral undefined value.</remarks>
+    Undefined,
+
+    /// <summary>The kind of a logical (boolean) value, written <c>T</c> or <c>F</c>.</summary>
+    Logical,
+
+    /// <summary>The kind of an integer value representable as an <see cref="System.Int64"/>.</summary>
+    Integer,
+
+    /// <summary>The kind of a floating-point value.</summary>
+    Float,
+
+    /// <summary>The kind of a character-string value.</summary>
+    String,
 
     /// <summary>
-    /// Creates an error describing an invalid precondition.
+    /// The kind of a value that matches no known FITS type, or that matches the
+    /// integer/float grammar but overflows its range.
     /// </summary>
-    /// <param name="reason">A description of the precondition that failed.</param>
-    /// <returns>The created error.</returns>
-    internal static TestError Invalid( string reason ) => new TestError( reason );
+    Unknown,
 }

@@ -32,9 +32,9 @@ namespace DotNetFITS;
 /// FITS data.
 /// </summary>
 /// <remarks>
-/// Ports the Swift <c>FITSError</c> enum as a single exception type carrying a
-/// <see cref="FITSErrorKind"/> discriminator and constructed through one static
-/// factory per error case. Every message is prefixed with <c>FITS Error: </c>.
+/// A single exception type carrying a <see cref="FITSErrorKind"/> discriminator
+/// and constructed through one static factory per error case. Every message is
+/// prefixed with <c>FITS Error: </c>.
 /// </remarks>
 public sealed class FITSException : Exception
 {

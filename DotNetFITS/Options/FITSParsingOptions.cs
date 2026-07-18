@@ -34,8 +34,7 @@ namespace DotNetFITS;
 /// values spread across several records (present in both <see cref="Strict"/>
 /// and <see cref="Lenient"/>), and <em>leniency flags</em> that tolerate
 /// technically-noncompliant input (present only in <see cref="Lenient"/>). The
-/// raw bitmask is the enum's underlying value, and the Swift
-/// <c>init(rawValue:)</c> maps to a cast.
+/// raw bitmask is the enum's underlying value.
 /// </remarks>
 [ Flags ]
 public enum FITSParsingOptions

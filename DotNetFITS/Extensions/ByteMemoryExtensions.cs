@@ -32,8 +32,7 @@ namespace DotNetFITS;
 /// Byte-level helpers used to inspect and split FITS data.
 /// </summary>
 /// <remarks>
-/// Ports the Swift <c>Data</c> extensions to <see cref="ReadOnlyMemory{Byte}"/>,
-/// the .NET analog of a Foundation <c>Data</c> slice: a value type wrapping a
+/// Extensions on <see cref="ReadOnlyMemory{Byte}"/>, a value type wrapping a
 /// buffer, offset and length whose slicing is O(1) and shares storage, so FITS
 /// data can be inspected and chunked without copying the bytes. The inspection
 /// helpers read the memory through its <see cref="ReadOnlyMemory{T}.Span"/> for a

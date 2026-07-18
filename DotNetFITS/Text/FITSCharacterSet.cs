@@ -28,15 +28,12 @@ namespace DotNetFITS;
 /// FITS-specific character-membership predicates used throughout parsing.
 /// </summary>
 /// <remarks>
-/// Ports the Swift <c>CharacterSet</c> extensions (<c>fitsPadding</c>,
-/// <c>fitsPaddingWithNul</c> and <c>fitsKeyword</c>). .NET has no
-/// <c>CharacterSet</c> equivalent, so each Swift set becomes a
-/// <see cref="char"/> membership predicate. The predicates are exposed as static
-/// methods so they convert to <see cref="System.Func{T, TResult}"/> method groups
-/// for the trimming helpers in <see cref="StringExtensions"/> and compose with
-/// <c>string</c> / <c>char</c> sequence checks. The predicate shape replaces the
-/// Swift <c>CharacterSet</c> (.NET has no equivalent); the character sets stay
-/// part of the public API, as they are in SwiftFITS.
+/// The FITS padding, padding-with-NUL and keyword character sets, each expressed
+/// as a <see cref="char"/> membership predicate (.NET has no character-set type).
+/// The predicates are exposed as static methods so they convert to
+/// <see cref="System.Func{T, TResult}"/> method groups for the trimming helpers
+/// in <see cref="StringExtensions"/> and compose with <c>string</c> / <c>char</c>
+/// sequence checks.
 /// </remarks>
 public static class FITSCharacterSet
 {

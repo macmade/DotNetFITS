@@ -36,7 +36,7 @@ namespace DotNetFITS;
 /// consumer can choose between spec-faithful output that rejects anything the
 /// FITS standard forbids and real-world-friendly output that tolerates the same
 /// noncompliant constructs the parser accepts. The raw bitmask is the enum's
-/// underlying value, and the Swift <c>init(rawValue:)</c> maps to a cast.
+/// underlying value.
 /// </remarks>
 [ Flags ]
 public enum FITSSerializationOptions

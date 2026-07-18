@@ -319,7 +319,7 @@
 
         <div class="phase">Phase 2 &middot; Value &amp; block layer</div>
         <ol>
-            <li><a href="#m4"><span class="num">M4</span> FITSValue</a> <span class="capsule status-not-started">Not started</span></li>
+            <li><a href="#m4"><span class="num">M4</span> FITSValue</a> <span class="capsule status-completed">Completed</span></li>
             <li><a href="#m5"><span class="num">M5</span> FITSBlock</a> <span class="capsule status-not-started">Not started</span></li>
         </ol>
 
@@ -712,7 +712,7 @@
     <div class="milestone" id="m4">
         <div class="m-head">
             <h3>M4 &middot; FITSValue</h3>
-            <span class="capsule status-not-started">Not started</span>
+            <span class="capsule status-completed">Completed</span>
         </div>
         <div class="field">
             <div class="label">Goal</div>
@@ -729,11 +729,110 @@
                 <li class="task">Port the <code>FITSValue</code> tests; adapt only the float-text expectations that reflect a pure language-runtime formatting difference (never the float/integer round-trip type).</li>
             </ul>
         </div>
-        <div class="field"><div class="label">Status</div><span class="capsule status-not-started">Not started</span></div>
-        <div class="field"><div class="label">Completed</div><span class="placeholder">&mdash;</span></div>
-        <div class="field"><div class="label">Implementation notes</div><p class="placeholder">To be filled in as work progresses.</p></div>
-        <div class="field"><div class="label">Automated review</div><p class="placeholder">To be filled in by the automated review loop.</p></div>
-        <div class="field"><div class="label">Review comments</div><p class="placeholder">Awaiting human review.</p></div>
+        <div class="field"><div class="label">Status</div><span class="capsule status-completed">Completed</span></div>
+        <div class="field"><div class="label">Completed</div>2026-07-18</div>
+        <div class="field">
+            <div class="label">Implementation notes</div>
+            <p>Implemented with TDD (the full test suite written first, watched fail at compile level, then made to
+                pass on the first implementation pass). Green in Debug <em>and</em> Release (0 warnings); the suite grew
+                from 38 to <strong>57 tests</strong> (19 added).</p>
+            <ul>
+                <li><strong>FITSValue (readonly struct).</strong> The Swift enum-with-associated-values becomes a lean
+                    <code>readonly struct</code>: one <code>long</code> numeric slot reinterprets the bits of the
+                    <code>bool</code> (0/1) / <code>long</code> / <code>double</code> payloads (via
+                    <code>BitConverter</code>), one <code>string?</code> holds the string/unknown payload, and a
+                    <code>FITSValueKind</code> discriminator selects the case. Static factories
+                    (<code>Logical</code>/<code>Integer</code>/<code>Float</code>/<code>String</code>/<code>Undefined</code>/<code>Unknown</code>).</li>
+                <li><strong>Accessors.</strong> Nullable <code>AsLogical</code>/<code>AsInteger</code>/<code>AsFloat</code>/<code>AsString</code>,
+                    renamed from Swift's <code>.logical</code> etc. because C# forbids a static factory and an instance
+                    member sharing a name (the factories kept the clean names). No accessor exposes the
+                    <code>Unknown</code> literal, matching Swift.</li>
+                <li><strong>Equality &amp; hashing.</strong> <code>IEquatable&lt;FITSValue&gt;</code> plus
+                    <code>==</code>/<code>!=</code>/<code>Equals(object)</code>/<code>GetHashCode</code>. Float equality
+                    reinterprets the bit slot back to <code>double</code> and applies the Swift
+                    <code>NaN&nbsp;==&nbsp;NaN</code> quirk; <code>GetHashCode</code> canonicalizes every NaN to
+                    <code>double.NaN</code> so equal NaNs share a bucket (with <code>+0.0</code>/<code>-0.0</code>
+                    staying consistent via <code>double</code>'s own hashing).</li>
+                <li><strong>Serialization.</strong> <code>Serialized()</code> matches Swift; the float path uses
+                    <code>double.ToString(InvariantCulture)</code> (the shortest round-trippable decimal, already
+                    upper-case <code>E</code> in .NET, so no <code>e</code>&rarr;<code>E</code> fix-up), guarantees a
+                    decimal point or exponent (appends <code>.0</code> to a whole-valued literal so it re-parses as a
+                    float), and throws <code>FITSException</code> on a non-finite value. A probe confirmed .NET's output
+                    equals Swift's for all five tested values.</li>
+                <li><strong>FITSValueKind descriptions.</strong> The enum member names are the display strings
+                    (<code>ToString()</code> yields "Logical", "Integer", &hellip;), matching Swift's
+                    <code>description</code> exactly, so no separate <code>Description</code> member is added (it would
+                    only duplicate <code>ToString()</code> in C#).</li>
+                <li><strong>Tests.</strong> Ported the Swift suite; <em>deferred</em> <code>valueRoundTrips</code> to M6
+                    (it parses the rendered literal back through <code>FITSProperty</code>, which does not exist yet),
+                    <em>dropped</em> <code>valueTypesAreSendable</code> (no C# <code>Sendable</code>; the port is
+                    synchronous), and <em>added</em> the mandated fr-FR culture-swap test for the float formatting plus
+                    explicit <code>==</code>/<code>!=</code> and <code>Equals(object)</code> tests.</li>
+            </ul>
+            <p><strong>Review follow-up (applied).</strong> After the automated review: removed a per-call
+                <code>char[]</code> allocation in the float path (hoisted the notation markers to a
+                <code>static readonly</code> field), added the single-space <code>' '</code> case to the
+                <code>Serialized()</code> doc, and fixed an "an&nbsp;<code>long</code>" grammar slip. Re-verified green
+                (57 tests) in Debug and Release.</p>
+            <p><strong>Maintainer review follow-up (applied).</strong> Reordered <code>FITSValueKind</code> so
+                <code>Undefined</code> is the zero value, making <code>default(FITSValue)</code> a neutral undefined
+                value (pinned by a new <code>DefaultValueIsUndefined</code> guard test; nothing depends on the enum's
+                integer values, so every other test stayed green &mdash; now 58). Confirmed that
+                <code>Serialized()</code>'s float text is written into actual FITS files (not debug output).</p>
+            <p><strong>Maintainer review follow-up 2 (applied).</strong> The float notation need not match SwiftFITS
+                byte-for-byte but must be a valid FITS literal: verified every form <code>Serialized()</code> emits
+                against FITS 4.0 &sect;4.2.4 &mdash; an optionally-signed decimal number with an optional upper-case
+                E/D exponent, where the decimal point may be omitted only when an integer-only mantissa carries an
+                exponent (e.g. <code>1E+20</code>) &mdash; and added a
+                <code>SerializesFloatProducesStandardCompliantLiterals</code> guard test asserting that grammar (plus a
+                decimal-point-or-exponent marker) across a broad range, including the ~1e16 band and the
+                <code>double</code> extremes. Separately, per a cross-cutting convention, removed every reference to the
+                Swift original (and its Foundation dependencies) from code and doc comments across the whole codebase
+                (M1&ndash;M4, source and tests), describing each type and member on its own terms; confirmed none
+                remain. 59 tests green in Debug and Release.</p>
+        </div>
+        <div class="field">
+            <div class="label">Automated review</div>
+            <p>One independent fresh-context round; converged immediately (no Critical/High/Medium findings). The
+                reviewer re-verified both build configurations and the 57-test suite, and empirically confirmed the
+                float formatting, the NaN equality/hashing (with two distinct NaN bit patterns), the
+                <code>&plusmn;0.0</code> consistency, culture-invariance (the fr-FR test genuinely guards) and string
+                quoting against SwiftFITS.</p>
+            <ul>
+                <li><em>Per-call <code>char[]</code> allocation in the float path</em> &mdash; Low &mdash;
+                    <strong>Fixed</strong>: hoisted the notation markers to a <code>static readonly</code> field.</li>
+                <li><em><code>Serialized()</code> doc omits the single-space case; "an&nbsp;<code>long</code>" grammar</em>
+                    &mdash; Info &mdash; <strong>Fixed</strong>.</li>
+                <li><em>Float notation diverges from Swift for ~1e16-magnitude values</em> (.NET
+                    <code>10000000000000000.0</code> vs Swift <code>1E+16</code>) &mdash; Low &mdash; Deferred: purely
+                    cosmetic (both are shortest, round-trippable, keep the decimal-point/exponent guarantee, and
+                    re-parse to the same <code>double</code>); untested by the Swift suite and outside the M4 contract,
+                    which specifies properties, not byte-identical text. Raised for the maintainer.</li>
+                <li><em><code>default(FITSValue)</code> reads as <code>Logical(false)</code></em> (the enum's zero
+                    value) &mdash; Low &mdash; Deferred: reordering the enum so <code>Undefined</code> is the zero value
+                    would make the default a neutral empty value, at the cost of departing from Swift's case order.
+                    Raised for the maintainer.</li>
+                <li><em>Logical <code>Equals</code> compares raw <code>numeric</code> while <code>GetHashCode</code>
+                    normalizes to <code>bool</code></em> &mdash; Info &mdash; No action: sound, since the factories
+                    guarantee <code>numeric &isin; {0,1}</code> for logicals.</li>
+            </ul>
+        </div>
+        <div class="field">
+            <div class="label">Review comments</div>
+            <ol>
+                <li><strong>Float notation &mdash; question.</strong> Is <code>Serialized()</code>'s float output used
+                    to write FITS files, or is it debug output? (A question about the ~1e16 notation divergence, not a
+                    change request.)</li>
+                <li><strong>Enum zero value.</strong> Make <code>Undefined</code> the first <code>FITSValueKind</code>
+                    member, so it is the zero value and <code>default(FITSValue)</code> is a neutral undefined value.</li>
+                <li><strong>No Swift mentions in comments.</strong> Code and doc comments must not reference the Swift
+                    original (or its Foundation dependencies); describe the C# code on its own terms. Applies across the
+                    whole codebase, not just this milestone.</li>
+                <li><strong>Float notation &mdash; decision.</strong> The <code>Serialized()</code> float text need not
+                    match SwiftFITS byte-for-byte, but every form it emits must be a valid floating-point literal per
+                    the FITS standard. Verify this.</li>
+            </ol>
+        </div>
     </div>
 
     <!-- M5 -->

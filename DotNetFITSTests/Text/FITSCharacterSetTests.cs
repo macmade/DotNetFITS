@@ -30,11 +30,9 @@ namespace DotNetFITSTests;
 /// Unit tests for the <see cref="FITSCharacterSet"/> membership predicates.
 /// </summary>
 /// <remarks>
-/// Ports the Swift <c>Test_CharacterSet</c> suite. Where the Swift tests remove
-/// each member from the set and assert the set is then empty (proving it holds
-/// exactly the expected characters), the C# tests scan the whole
-/// <see cref="char"/> range and assert each predicate matches its expected
-/// membership - proving the same "exactly these characters" property.
+/// Each test scans the whole <see cref="char"/> range and asserts the predicate
+/// matches its expected membership, proving it holds exactly the expected
+/// characters and no others.
 /// </remarks>
 public class FITSCharacterSetTests
 {

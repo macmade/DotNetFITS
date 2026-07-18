@@ -37,9 +37,8 @@ namespace DotNetFITSTests;
 /// with the self-tests that verify those helpers.
 /// </summary>
 /// <remarks>
-/// Ports the Swift <c>TestUtilities</c> class. Blocks are produced as
-/// <see cref="ReadOnlyMemory{Byte}"/> - the model's data type - so they feed the
-/// block, section and file layers directly.
+/// Blocks are produced as <see cref="ReadOnlyMemory{Byte}"/> - the model's data
+/// type - so they feed the block, section and file layers directly.
 /// </remarks>
 public class TestUtilities
 {
@@ -50,7 +49,7 @@ public class TestUtilities
     /// The heavy fixtures live in the <c>Test Files</c> directory at the
     /// repository root, outside any project, so they are not copied to the build
     /// output. They are located relative to this source file's compile-time path
-    /// (the C# counterpart of Swift's <c>#filePath</c>): a test assembly only ever
+    /// (captured at compile time via <c>[CallerFilePath]</c>): a test assembly only ever
     /// runs from its own checkout, so the path stays valid at run time. Returned
     /// sorted by file name.
     /// </remarks>

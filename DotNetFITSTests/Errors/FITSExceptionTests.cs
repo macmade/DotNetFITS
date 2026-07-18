@@ -36,8 +36,7 @@ public class FITSExceptionTests
     /// <summary>
     /// Every error factory sets the matching <see cref="FITSErrorKind"/> and
     /// produces a non-empty, descriptive message (not merely the type name) that
-    /// includes its payload - extending the Swift <c>FITSError</c> description
-    /// test with the C#-specific <see cref="FITSException.Kind"/> discriminator.
+    /// includes its payload.
     /// </summary>
     [ Fact ]
     public void FactoriesProduceTheExpectedKindAndMessage()

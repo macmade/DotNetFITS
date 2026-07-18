@@ -30,10 +30,9 @@ namespace DotNetFITSTests;
 /// Unit tests for <see cref="FITSParsingOptions"/>.
 /// </summary>
 /// <remarks>
-/// SwiftFITS ships no dedicated parsing-options test; this guard was added
-/// because the type hand-assigns fourteen bit values and two composite presets,
-/// which the compiler cannot check for a wrong shift, a bit collision or a
-/// missing preset member.
+/// This guard test covers a type that hand-assigns fourteen bit values and two
+/// composite presets, which the compiler cannot check for a wrong shift, a bit
+/// collision or a missing preset member.
 /// </remarks>
 public class FITSParsingOptionsTests
 {
