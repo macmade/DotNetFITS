@@ -9,8 +9,29 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <PackageId>DotNetFITS</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Jean-David Gadina</Authors>
+    <Company>XS-Labs</Company>
+    <Description>FITS Image Library for C# / .NET — read and write FITS files based on the FITS 4.0 standard.</Description>
+    <PackageTags>FITS;astronomy;image;fits-4.0;io</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/macmade/DotNetFITS</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/macmade/DotNetFITS</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Copyright>© 2025 Jean-David Gadina - www.xs-labs.com</Copyright>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="DotNetFITSTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>
