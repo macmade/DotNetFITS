@@ -220,7 +220,7 @@ public class FITSFileTests
         }
         finally
         {
-            File.Delete( path );
+            TestUtilities.RemoveTemporaryFile( path );
         }
     }
 
@@ -859,7 +859,7 @@ public class FITSFileTests
         }
         finally
         {
-            File.Delete( path );
+            TestUtilities.RemoveTemporaryFile( path );
         }
     }
 
@@ -994,7 +994,7 @@ public class FITSFileTests
         }
         finally
         {
-            File.Delete( path );
+            TestUtilities.RemoveTemporaryFile( path );
         }
     }
 

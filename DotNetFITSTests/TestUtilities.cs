@@ -245,6 +245,28 @@ public class TestUtilities
     }
 
     /// <summary>
+    /// Removes a temporary file created by a test, ignoring any failure.
+    /// </summary>
+    /// <remarks>
+    /// Kept <c>internal</c> rather than <c>public</c>: a public <c>void</c> method on this
+    /// test class would be mistaken for an unmarked test by the xUnit analyzer
+    /// (<c>xUnit1013</c>). It is reachable from every test in the assembly.
+    /// </remarks>
+    /// <param name="path">The path of the temporary file to remove.</param>
+    internal static void RemoveTemporaryFile( string path )
+    {
+        try
+        {
+            File.Delete( path );
+        }
+        catch( Exception )
+        {
+            // Cleanup is best-effort: a deletion failure must not mask the test's
+            // own result.
+        }
+    }
+
+    /// <summary>
     /// The set of sample files discovered at the repository root is non-empty.
     /// </summary>
     [ Fact ]

@@ -338,7 +338,7 @@
 
         <div class="phase">Phase 5 &middot; Integration &amp; finalization</div>
         <ol>
-            <li><a href="#m11"><span class="num">M11</span> Integration tests &amp; sample-file parity</a> <span class="capsule status-not-started">Not started</span></li>
+            <li><a href="#m11"><span class="num">M11</span> Integration tests &amp; sample-file parity</a> <span class="capsule status-completed">Completed</span></li>
             <li><a href="#m12"><span class="num">M12</span> Finalization &mdash; clean build, README, CI parity</a> <span class="capsule status-not-started">Not started</span></li>
         </ol>
     </div>
@@ -1682,7 +1682,7 @@
     <div class="milestone" id="m11">
         <div class="m-head">
             <h3>M11 &middot; Integration tests &amp; sample-file parity</h3>
-            <span class="capsule status-not-started">Not started</span>
+            <span class="capsule status-completed">Completed</span>
         </div>
         <div class="field">
             <div class="label">Goal</div>
@@ -1697,11 +1697,140 @@
                 <li class="task">Cross-check parity: the ported suite should reach ~231 tests (adjusted only for genuine Swift/.NET idiom differences); record any intentionally dropped or split tests in the implementation notes.</li>
             </ul>
         </div>
-        <div class="field"><div class="label">Status</div><span class="capsule status-not-started">Not started</span></div>
-        <div class="field"><div class="label">Completed</div><span class="placeholder">&mdash;</span></div>
-        <div class="field"><div class="label">Implementation notes</div><p class="placeholder">To be filled in as work progresses.</p></div>
-        <div class="field"><div class="label">Automated review</div><p class="placeholder">To be filled in by the automated review loop.</p></div>
-        <div class="field"><div class="label">Review comments</div><p class="placeholder">Awaiting human review.</p></div>
+        <div class="field"><div class="label">Status</div><span class="capsule status-completed">Completed</span></div>
+        <div class="field"><div class="label">Completed</div>2026-07-18</div>
+        <div class="field">
+            <div class="label">Implementation notes</div>
+            <p>Implemented with TDD. This is a <strong>test-only</strong> milestone &mdash; every production type it
+                exercises (<code>FITSFile</code>, <code>FITSSection</code>, <code>FITSProperty</code>,
+                <code>FITSValue</code>, the option sets) already exists from M1&ndash;M10 &mdash; so the
+                &ldquo;red&rdquo; phase was compile-level (the new test class did not yet exist); once written, all
+                five tests passed against the existing implementation on the first run. Green in Debug <em>and</em>
+                Release (0 warnings under warnings-as-errors, nullable and overflow checks active); the suite grew
+                from 251 to <strong>256 tests</strong> (5 added). A filtered run confirms the five
+                <code>IntegrationTests</code> execute and pass (5/5).</p>
+            <ul>
+                <li><strong>Integration tests (task 1).</strong> Ported all five end-to-end tests into a new
+                    <code>DotNetFITSTests/IntegrationTests.cs</code>: <code>ImageFileFullLifecycle</code> (build a
+                    2&times;2 8-bit image &rarr; tag with <code>OBJECT</code> &rarr; write to disk &rarr; reread
+                    &rarr; reshape to a 3&times;3 16-bit image with new pixels &rarr; rewrite &rarr; reread,
+                    asserting the geometry, the preserved keyword and the new data segment all survive),
+                    <code>TableExtensionFileRoundTrips</code> (a NAXIS&nbsp;=&nbsp;0 primary plus a
+                    <code>TABLE</code> extension, serialized and re-parsed with its <code>EXTEND</code>
+                    declaration), <code>MultiHduEditPreservesUntouchedSectionsByteForByte</code> (edit one
+                    extension's header; the primary and the other extension re-emit byte-for-byte),
+                    <code>BuildRemoveAndReorderExtensions</code> (build three, drop the middle, move the last to
+                    the front), and <code>StrictVsLenientSerializationAndErrorPaths</code> (a data-size mismatch
+                    rejected by strict and tolerated by lenient; unwritable-path write and out-of-range extension
+                    operations throw <code>FITSException</code>).</li>
+                <li><strong>API adaptations.</strong> The read/write pipeline maps cleanly: the geometry accessor
+                    <code>naxis( n )</code> &rarr; <code>NaxisAt( n )</code>; the data-section lookup
+                    <code>sections.first { $0.kind == .data }</code> &rarr;
+                    <code>Sections.FirstOrDefault( section =&gt; section.SectionKind == FITSSection.Kind.Data )</code>;
+                    unwrap-or-fail &rarr; <code>Assert.NotNull( x )</code> then use <code>x</code> (which also
+                    narrows nullability under the strict analyzers, so the later <code>.Data</code>/subscript
+                    dereferences compile clean); and expect-no-throw &rarr; calling directly (or
+                    <code>_ = &hellip;</code>). Byte comparisons use <code>.Slice( offset, length ).ToArray()</code>
+                    against a <code>byte[]</code> literal.</li>
+                <li><strong>Self-contained, no duplication.</strong> The file needs no private helpers: the
+                    temporary path is an inline
+                    <code>Path.Combine( Path.GetTempPath(), Guid.NewGuid().ToString() + ".fits" )</code> (cleaned
+                    up in a <code>finally</code>), and the repeated-byte payloads are built inline
+                    (<code>Enumerable.Repeat( ( byte )0x7F, 18 ).ToArray()</code>; <code>new byte[ 100 ]</code> for
+                    zeros), so nothing is copied from <code>FITSFileTests</code>'s private helpers.</li>
+                <li><strong>Placement (decision to confirm).</strong> Put <code>IntegrationTests.cs</code> at the
+                    test-project root, alongside <code>TestError.cs</code>/<code>TestUtilities.cs</code> (the other
+                    files that mirror no single library type), rather than under <code>Model/</code>: the tests are
+                    cross-cutting (they span the file/section/property layers and map to no one type). Flagged for
+                    the maintainer &mdash; trivial to move under <code>Model/</code> if preferred (the flat
+                    <code>namespace DotNetFITSTests;</code> is folder-independent and the SDK-style project globs
+                    its sources, so no <code>.csproj</code> change either way).</li>
+                <li><strong>Sample-file parity (task 2) &mdash; already covered.</strong> The three sample-file
+                    tests the suite asserts were ported in M9/M10 and need nothing added:
+                    <code>ParseAllTestFiles</code> (parse every file under <code>Test Files</code> under lenient
+                    options), <code>AllTestFilesRoundTrip</code> (parse lenient, re-serialize with the strict
+                    <code>Data</code> property, assert byte-for-byte against the original), and
+                    <code>SerializedDataRoundTripsAllTestFiles</code> (parse lenient, re-serialize lenient, assert
+                    byte-for-byte). Each asserts a non-empty fixture set first; confirmed they map 1:1 to the
+                    originals and pass over all 15 real sample files.</li>
+                <li><strong>Parity cross-check (task 3).</strong> The original suite has <strong>231</strong> test
+                    functions; the C# suite is <strong>256</strong>. The integration tests port 1:1
+                    (5&nbsp;&rarr;&nbsp;5, none dropped or split). The remaining +25 are the guard and split tests
+                    added across M1&ndash;M10 (itemized in those milestones' notes): FITSValue 18&rarr;22, String
+                    2&rarr;9, byte-extensions 3&rarr;7, FITSProperty 65&rarr;68 (split into a parse file and a
+                    serialization file), FITSSection 43&rarr;45, FITSException 1&rarr;2, charset 2&rarr;3, FITSFile
+                    67&rarr;68, plus a new <code>FITSParsingOptions</code> guard file (0&rarr;2) the original suite
+                    lacks; the one dropped original (<code>valueTypesAreSendable</code>, no C# analog) is already
+                    accounted for in M4. No <em>integration</em> test was intentionally dropped or split.</li>
+            </ul>
+            <p><strong>Review follow-up (applied).</strong> Per the maintainer's review: temporary-file cleanup
+                in the disk-writing tests now suppresses any deletion failure &mdash; a <code>try</code> around
+                <code>File.Delete</code> with a no-op <code>catch( Exception )</code> (the codebase's broad-catch
+                idiom), documented as best-effort cleanup &mdash; so a failed cleanup can never mask a test's own
+                result, matching the original's error-ignoring <code>try?</code> semantics. Applied to the M11
+                <code>ImageFileFullLifecycle</code> test and, at the maintainer's request, to the three
+                <code>FITSFileTests</code> disk tests that also map to the original's
+                <code>defer { try? &hellip; }</code> cleanup (<code>UnreadableFileThrowsCannotReadFile</code>,
+                <code>WriteThenRereadReproducesBytes</code>, <code>WritesFromScratchFileToDiskAndReadsBack</code>);
+                the two whose original deletes with a throwing <code>try</code> (<code>EmptyFile</code>,
+                <code>UnreadableFile</code>) were left as-is. Re-verified green (256 tests, 0 warnings) in Debug
+                and Release.</p>
+            <p><strong>Review follow-up 2 (applied).</strong> Extracted the now-identical best-effort delete
+                blocks into a single <code>TestUtilities.RemoveTemporaryFile( path )</code> helper, called from all
+                four cleanup sites (the M11 integration test and the three <code>FITSFileTests</code> disk tests),
+                so each <code>finally</code> is now a one-line call. The helper is <code>internal</code> rather than
+                <code>public</code> like the block builders: a public <code>void</code> method on the
+                <code>[ Fact ]</code>-bearing <code>TestUtilities</code> class trips the xUnit
+                <code>xUnit1013</code> analyzer (which reads it as an unmarked test), whereas the builders escape it
+                only because they return a value; <code>internal</code> keeps it reachable from every test in the
+                assembly. Re-verified green (256 tests, 0 warnings) in Debug and Release.</p>
+        </div>
+        <div class="field">
+            <div class="label">Automated review</div>
+            <p>One independent fresh-context round; converged immediately (no Critical/High/Medium findings). The
+                reviewer verified the port test-by-test against the source integration tests and the actual C#
+                public API (<code>FITSFile</code>/<code>FITSSection</code>/<code>FITSProperty</code>/<code>FITSValue</code>),
+                traced the geometry and byte-for-byte round-trip math by hand, confirmed the build (0 warnings,
+                all analyzers active) and the 256-test suite (the 5 integration tests passing), checked convention
+                adherence (spacing, alignment, no references to the source library, doc comments), and confirmed
+                there is no regression surface (the change is one untracked test file &mdash; no production code or
+                existing test was altered). Two findings, both Low/Info:</p>
+            <ul>
+                <li><em>The <code>finally { File.Delete( path ); }</code> cleanup is not exception-suppressed</em>
+                    &mdash; Low &mdash; Deferred: <code>File.Delete</code> cannot throw here (the temporary
+                    directory exists, the atomic write leaves no open handle, and deleting a missing file in an
+                    existing directory is a no-op), and the <code>try</code>/<code>finally</code>-without-catch
+                    shape matches the existing disk-write tests
+                    (<code>WriteThenRereadReproducesBytes</code>, <code>WritesFromScratchFileToDiskAndReadsBack</code>);
+                    wrapping it in a catch would <em>diverge</em> from that established pattern. Surfaced to the
+                    maintainer.</li>
+                <li><em>Test 3's byte-for-byte assertions compare header-block bytes (the <code>Header</code> and
+                    extension <code>.Data</code>), not the trailing data segments</em> &mdash; Info &mdash; No
+                    action: an exact, intentional mirror of the original test's coverage scope; flagged only to
+                    document that the scope was traced.</li>
+            </ul>
+        </div>
+        <div class="field">
+            <div class="label">Review comments</div>
+            <ol>
+                <li><strong>File.Delete should match the original.</strong> The temporary-file cleanup in the
+                    disk-writing integration test must mirror the original's error-ignoring <code>try?</code>
+                    semantics &mdash; any exception from removing the temporary file is suppressed &mdash; so a
+                    failed cleanup can never mask the test's own result. (The port had used a bare
+                    <code>File.Delete</code> in the <code>finally</code>, matching the earlier disk-write tests
+                    rather than the original's best-effort delete.)</li>
+                <li><strong>Apply the same fix across the suite.</strong> Extend the best-effort-cleanup fix to
+                    the three <code>FITSFileTests</code> disk tests that also map to the original's
+                    <code>defer { try? &hellip; }</code> cleanup (<code>UnreadableFileThrowsCannotReadFile</code>,
+                    <code>WriteThenRereadReproducesBytes</code>,
+                    <code>WritesFromScratchFileToDiskAndReadsBack</code>), leaving the two whose original deletes
+                    with a throwing <code>try</code> (<code>EmptyFile</code>, <code>UnreadableFile</code>) as-is.</li>
+                <li><strong>Extract a shared cleanup helper.</strong> Replace the now-identical inline
+                    best-effort delete blocks (four sites) with a single
+                    <code>TestUtilities.RemoveTemporaryFile( path )</code> helper, so the temporary-file cleanup
+                    lives in one place.</li>
+            </ol>
+        </div>
     </div>
 
     <!-- M12 -->
