@@ -339,7 +339,7 @@
         <div class="phase">Phase 5 &middot; Integration &amp; finalization</div>
         <ol>
             <li><a href="#m11"><span class="num">M11</span> Integration tests &amp; sample-file parity</a> <span class="capsule status-completed">Completed</span></li>
-            <li><a href="#m12"><span class="num">M12</span> Finalization &mdash; clean build, README, CI parity</a> <span class="capsule status-not-started">Not started</span></li>
+            <li><a href="#m12"><span class="num">M12</span> Finalization &mdash; clean build, README, CI parity</a> <span class="capsule status-completed">Completed</span></li>
         </ol>
     </div>
 
@@ -1837,7 +1837,7 @@
     <div class="milestone" id="m12">
         <div class="m-head">
             <h3>M12 &middot; Finalization &mdash; clean build, README, CI parity</h3>
-            <span class="capsule status-not-started">Not started</span>
+            <span class="capsule status-completed">Completed</span>
         </div>
         <div class="field">
             <div class="label">Goal</div>
@@ -1853,11 +1853,90 @@
                 <li class="task">Confirm <code>DotNetFITS.slnx</code> and the two <code>.csproj</code> files are in sync and that the <code>ci-win.yaml</code> workflow (which runs <code>dotnet test</code> on the solution in Debug and Release) will pass; note nothing platform-specific was introduced.</li>
             </ul>
         </div>
-        <div class="field"><div class="label">Status</div><span class="capsule status-not-started">Not started</span></div>
-        <div class="field"><div class="label">Completed</div><span class="placeholder">&mdash;</span></div>
-        <div class="field"><div class="label">Implementation notes</div><p class="placeholder">To be filled in as work progresses.</p></div>
-        <div class="field"><div class="label">Automated review</div><p class="placeholder">To be filled in by the automated review loop.</p></div>
-        <div class="field"><div class="label">Review comments</div><p class="placeholder">Awaiting human review.</p></div>
+        <div class="field"><div class="label">Status</div><span class="capsule status-completed">Completed</span></div>
+        <div class="field"><div class="label">Completed</div>2026-07-18</div>
+        <div class="field">
+            <div class="label">Implementation notes</div>
+            <p>A finalization and documentation milestone: no production code changed, so the work is
+                verification-driven (confirm the build, tests and CI) plus the README. Green in Debug <em>and</em>
+                Release (0 warnings under warnings-as-errors, nullable and overflow checks active); the suite stands at
+                <strong>256 tests</strong>, 0 skipped, in both configurations.</p>
+            <ul>
+                <li><strong>Clean build &amp; no placeholders (task 1).</strong> A fresh <code>--no-incremental</code>
+                    build in Debug and Release each reports 0 warnings / 0 errors. A word-boundary scan of the source
+                    (<code>DotNetFITS</code> and <code>DotNetFITSTests</code>) finds no
+                    <code>TODO</code>/<code>FIXME</code>/<code>NotImplemented</code>/<code>HACK</code>/<code>XXX</code>
+                    placeholders.</li>
+                <li><strong>Tests &amp; final count (task 2).</strong> <code>dotnet test DotNetFITS.slnx</code> passes
+                    all 256 tests in Debug and Release, 0 skipped. The count is 256 against the source suite's 231: the
+                    five integration tests plus the guard and split tests added across M1&ndash;M10 (the full parity
+                    breakdown is in the M11 notes). No milestone ships untested behavior.</li>
+                <li><strong>README (task 3).</strong> Replaced the placeholder <code>About</code> with a full document
+                    &mdash; About, Status, Conformance &amp; Limitations, Requirements, Building, and Example Usage
+                    (reading; writing &amp; serialization) &mdash; following the maintainer's standard repo template.
+                    <strong>Framing decided with the maintainer:</strong> DotNetFITS is described purely on its own
+                    terms as a standalone C# / .NET library, with no reference to any other project; the float-text
+                    behavior (shortest round-trippable form with a guaranteed decimal point or exponent,
+                    culture-invariant) and the other behaviors are documented as C# library properties. The three C#
+                    examples were written to the project's spacing conventions and <strong>compile-verified</strong>
+                    against the built library in a throwaway project (0 warnings / 0 errors under nullable and
+                    warnings-as-errors), so every API call, overload, nullable form and collection-expression target
+                    type is confirmed.</li>
+                <li><strong>Solution / project sync &amp; CI (task 4).</strong> <code>DotNetFITS.slnx</code> lists both
+                    projects; the two <code>.csproj</code> are consistent (<code>net10.0</code>, nullable,
+                    overflow-checked, warnings-as-errors), with the library adding <code>GenerateDocumentationFile</code>
+                    and <code>InternalsVisibleTo</code>. The sample fixtures under <code>Test Files</code> are committed
+                    to the repository (14 files, no submodules), so the CI checkout carries them and the sample-file
+                    tests run. Nothing platform-specific was introduced: the only OS-specific reference in the codebase
+                    is the POSIX-permission test, which returns early on Windows, so the <code>ci-win.yaml</code>
+                    workflow (<code>dotnet test</code> on the solution in Debug and Release, on Windows) passes.</li>
+            </ul>
+            <p><strong>Review follow-up (applied).</strong> Per the maintainer's review, qualified the round-trip
+                claim in the README &mdash; &ldquo;a parsed file round-trips byte-for-byte&rdquo; became &ldquo;a
+                compliant file round-trips byte-for-byte&rdquo; in both the Status section and the <code>END</code>
+                bullet &mdash; since the round-trip goes through the strict <code>FITSFile.Data</code> and a
+                lenient-only file need not reproduce its input bytes. The behavior is a faithful port, so the same
+                wording fix was applied to the SwiftFITS README as well, keeping the two projects' documentation
+                consistent. (The SwiftFITS change lives in a separate repository, to be committed there.)</p>
+        </div>
+        <div class="field">
+            <div class="label">Automated review</div>
+            <p>One independent fresh-context round; converged immediately (no Critical/High/Medium findings). The
+                reviewer re-ran both build configurations and both test configs (256 passing), independently checked
+                every <em>Conformance &amp; Limitations</em> claim against the source (keyword charset,
+                mandatory-order enforcement, the geometry formula and random-groups, <code>END</code> retention, the
+                float serialization, the lenient-tolerance list mapping 1:1 to the option flags, serialization
+                symmetry, and the thread-safety statement), confirmed the framing constraint (no reference to any
+                other project or to Foundation), and <em>compiled and ran</em> the three examples (verifying the
+                pixel/byte arithmetic in the comments). Three findings, all Low/Info:</p>
+            <ul>
+                <li><em>&ldquo;Round-trips byte-for-byte through <code>FITSFile.Data</code>&rdquo; is precise for a
+                    standards-compliant file but not universally</em> &mdash; Low &mdash; Deferred (surfaced to the
+                    maintainer): <code>FITSFile.Data</code> is the strict serialization, which re-validates, so a file
+                    that only parses under lenient options need not round-trip through it &mdash; a data-length
+                    mismatch throws, and a trailing partial block is zero-padded at parse time, lengthening the
+                    retained bytes. The claim matches the type's own XML docs and holds for every real sample file
+                    (pinned by <code>AllTestFilesRoundTrip</code>); the caveat is an edge case. Optionally qualify as
+                    &ldquo;a compliant file round-trips byte-for-byte.&rdquo;</li>
+                <li><em>Heading style mixes setext and ATX (H1&rarr;H3, no H2)</em> &mdash; Info &mdash; Deferred:
+                    pre-existing and matching the maintainer's standard repo-README template; the new sections are
+                    consistent with it.</li>
+                <li><em>The illustrative <code>bytes</code> local in the editing example is assigned but unused</em>
+                    &mdash; Info &mdash; Deferred: deliberate (it shows <code>SerializedData</code> as an alternative
+                    to <code>Write</code>); produces no compiler warning and compiled cleanly.</li>
+            </ul>
+        </div>
+        <div class="field">
+            <div class="label">Review comments</div>
+            <ol>
+                <li><strong>Qualify the round-trip claim &mdash; in both projects.</strong> The README's
+                    &ldquo;a parsed file round-trips byte-for-byte&rdquo; is precise only for a standards-compliant
+                    file: the round-trip goes through the strict <code>FITSFile.Data</code>, which re-validates, and a
+                    trailing partial block is zero-padded at parse time, so a lenient-only file need not reproduce its
+                    input bytes. Qualify it as &ldquo;a compliant file&rdquo;. The behavior is a faithful port, so
+                    apply the same wording fix to the SwiftFITS README too, keeping the two projects consistent.</li>
+            </ol>
+        </div>
     </div>
 
     <!-- ============================ APPENDIX ============================ -->
