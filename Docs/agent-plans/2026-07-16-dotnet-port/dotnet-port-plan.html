@@ -331,7 +331,7 @@
 
         <div class="phase">Phase 4 &middot; Section &amp; file layer</div>
         <ol>
-            <li><a href="#m8"><span class="num">M8</span> FITSSection</a> <span class="capsule status-not-started">Not started</span></li>
+            <li><a href="#m8"><span class="num">M8</span> FITSSection</a> <span class="capsule status-completed">Completed</span></li>
             <li><a href="#m9"><span class="num">M9</span> FITSFile &mdash; parsing, geometry &amp; validation</a> <span class="capsule status-not-started">Not started</span></li>
             <li><a href="#m10"><span class="num">M10</span> FITSFile &mdash; construction, editing, serialization &amp; write</a> <span class="capsule status-not-started">Not started</span></li>
         </ol>
@@ -1245,7 +1245,7 @@
     <div class="milestone" id="m8">
         <div class="m-head">
             <h3>M8 &middot; FITSSection</h3>
-            <span class="capsule status-not-started">Not started</span>
+            <span class="capsule status-completed">Completed</span>
         </div>
         <div class="field">
             <div class="label">Goal</div>
@@ -1263,11 +1263,134 @@
                 <li class="task">Port <code>ReadAndMergeProperties</code> and both <code>ToString()</code> overloads; port the <code>FITSSection</code> tests.</li>
             </ul>
         </div>
-        <div class="field"><div class="label">Status</div><span class="capsule status-not-started">Not started</span></div>
-        <div class="field"><div class="label">Completed</div><span class="placeholder">&mdash;</span></div>
-        <div class="field"><div class="label">Implementation notes</div><p class="placeholder">To be filled in as work progresses.</p></div>
-        <div class="field"><div class="label">Automated review</div><p class="placeholder">To be filled in by the automated review loop.</p></div>
-        <div class="field"><div class="label">Review comments</div><p class="placeholder">Awaiting human review.</p></div>
+        <div class="field"><div class="label">Status</div><span class="capsule status-completed">Completed</span></div>
+        <div class="field"><div class="label">Completed</div>2026-07-18</div>
+        <div class="field">
+            <div class="label">Implementation notes</div>
+            <p>Implemented with TDD &mdash; the test suite written first and watched fail at compile level (the
+                <code>FITSSection</code> type was still the M6 stub), then made to pass. Green in Debug <em>and</em>
+                Release (0 warnings under warnings-as-errors, nullable and overflow checks active); the suite grew from
+                140 to <strong>185 tests</strong> (45 added).</p>
+            <ul>
+                <li><strong>FITSSection (sealed class).</strong> Replaces the M6 stub with the full section type: the
+                    nested <code>Kind</code> enum, the private block store, the <code>IsFinalized</code> and retained
+                    <code>NeedsSerialization</code> flags, the optional data <code>Payload</code> (a nullable
+                    <code>ReadOnlyMemory&lt; byte &gt;</code>), and the parsed <code>Properties</code>. <code>sealed</code>
+                    per the type-is-not-a-hierarchy precedent. The stub's surface (<code>public NeedsSerialization</code>
+                    get / private-set + <code>internal MarkNeedsSerialization()</code>) is preserved unchanged, so
+                    <code>FITSProperty</code>'s dirty-tracking hook still binds.</li>
+                <li><strong>Kind enum &amp; naming adaptations.</strong> <code>Kind</code> is nested
+                    (<code>Header</code>/<code>Extension</code>/<code>Data</code>), the member names doubling as the
+                    display strings (the summary interpolates the kind directly, no separate description member). Three
+                    C# name adaptations were required and documented in the code: the instance property is
+                    <code>SectionKind</code> (C# forbids a property named the same as a nested type); the geometry
+                    accessor is <code>NaxisAt( n )</code> (a property <code>Naxis</code> and a method cannot share a
+                    name); and the parse/validate entry point is <code>FinalizeSection( options )</code> (C# reserves
+                    <code>Finalize</code> for the object finalizer).</li>
+                <li><strong>Constructors.</strong> Ported the three initializers: kind+block (validates the seed block
+                    through the structural rules), data-payload (marks dirty + finalized), and kind+properties (a chained
+                    constructor validating header-kind, rejecting the reserved <code>END</code> keyword, enforcing
+                    single-ownership attachability, copying the model and attaching back-references). The two
+                    two-argument constructors are disambiguated for a null block by the named argument
+                    <code>block: null</code> (the closest analog to the original's argument labels).</li>
+                <li><strong>Accumulation &amp; finalization.</strong> <code>Append( FITSBlock )</code> (internal)
+                    enforces the header structural rules (ASCII-only, no block after an <code>END</code> marker, no
+                    mid-section extension marker); <code>AppendPadding</code> (internal) bypasses them for trailing blank
+                    padding. <code>FinalizeSection</code> reproduces the original exactly: printability guard, record
+                    read+merge, single-<code>END</code> enforcement (multiple and none both rejected), unknown-property
+                    rejection, content-after-<code>END</code> tolerance, and trailing-blank trimming &mdash; the last via
+                    <code>List.FindLastIndex</code> over the pre-<code>END</code> slice, which also yields the degenerate
+                    all-blank &rarr; empty case without an index edge case. Parsed properties are attached with the plain
+                    <code>Section</code> setter (which does <em>not</em> dirty the section), so a parsed-but-unmodified
+                    section stays clean and re-emits its retained bytes byte-for-byte.</li>
+                <li><strong>Record merging.</strong> <code>ReadAndMergeProperties</code> chunks the header into 80-byte
+                    records and folds <code>CONTINUE</code>/<code>HISTORY</code>/<code>COMMENT</code> per the enabled
+                    options as an explicit fold. The orphaned-<code>CONTINUE</code> fallback catches
+                    <code>FITSException</code> (the only type <code>FITSProperty.Merge</code> throws) and, under
+                    <code>AllowOrphanedContinue</code>, keeps the record standalone.</li>
+                <li><strong>Serialization.</strong> <code>SerializedData( options )</code> returns a
+                    <code>ReadOnlyMemory&lt; byte &gt;</code>; <code>Data</code> is a throwing property (the mirror of the
+                    original's throwing computed <code>data</code>). <code>AppendSerializedData</code> takes an
+                    <code>ArrayBufferWriter&lt; byte &gt;</code> accumulator &mdash; the idiomatic .NET
+                    &ldquo;assemble several sections into one buffer without a per-section copy&rdquo; type the plan calls
+                    for, which the M9 file layer will drive. Clean sections write their <code>RetainedBytes</code>; dirty
+                    headers render via <code>RenderedHeader</code> (serialize each property, append the padded
+                    <code>END</code>, blank-pad to a whole block, with an explicit ASCII guard before
+                    <code>Encoding.ASCII.GetBytes</code>); dirty data sections zero-pad the payload.
+                    <code>PaddedToBlockBoundary</code>, <code>DataSize</code> and <code>SerializedByteCount</code> match
+                    the original. Both <code>ToString</code> overloads reproduce the indentable multi-line summary, value
+                    columns aligned, only culture-invariant integer formatting.</li>
+                <li><strong>Tests &mdash; scope split forced by the dependency order.</strong> Of the 43 original section
+                    tests, <strong>34</strong> were ported faithfully. The other <strong>9</strong> build their section
+                    through <code>FITSFile( data: )</code> / <code>.header</code> / <code>.sections</code> &mdash; the
+                    file <em>parser</em>, an M9 type the plan's dependency order forbids M8 from referencing &mdash; so
+                    they are <strong>deferred to M9</strong>, to be ported verbatim once the reader exists:
+                    <code>keywordSubscriptReturnsFirstMatch</code>, <code>typedGeometryAccessorsReturnParsedValues</code>,
+                    <code>typedGeometryAccessorsAreNilWhenAbsent</code>, <code>cleanSectionSerializesToRetainedBytes</code>,
+                    <code>dirtiedHeaderSectionRendersFromModelAndReparsesEqual</code>,
+                    <code>buildsHeaderFromPropertiesAndRoundTrips</code>,
+                    <code>mutatesPropertiesAndReflectsInSerialization</code>,
+                    <code>editingParsedPropertyInPlaceMarksSectionDirty</code>,
+                    <code>idempotentPropertyReassignmentKeepsSectionClean</code>. So M8 ships none of those behaviors
+                    untested: each is covered here by a <strong>section-level native test</strong> that builds the
+                    section directly from a block + <code>FinalizeSection</code> (or from a property model) and re-parses
+                    rendered bytes through a fresh <code>FITSSection</code> &mdash; exactly what the file layer does
+                    internally for a single-block header. (Approach chosen with the maintainer.) Two further tests
+                    (<code>AppendPaddingBypassesStructuralRules</code>, <code>SerializedByteCountReflectsPaddedPayload</code>)
+                    cover internal members the original suite never exercised.</li>
+                <li><strong>Existing-test adaptation.</strong> The M6
+                    <code>EditingMarksTheOwningSectionForReserialization</code> test built its section with the stub's
+                    implicit parameterless constructor (<code>new FITSSection()</code>), which the real constructors
+                    remove. It was updated to <code>new FITSSection( FITSSection.Kind.Header, block: null )</code> &mdash;
+                    an empty header section that starts clean &mdash; preserving the test's dirty-tracking assertions
+                    unchanged.</li>
+            </ul>
+            <p><strong>Review follow-up (applied).</strong> Per the maintainer's review (finding 1): added a
+                <code>default</code> case to the <code>AppendSerializedData</code> switch that throws
+                <code>FITSException.InvalidSectionData</code> for an unhandled section <code>Kind</code> &mdash;
+                <code>InvalidSectionData</code> matching the file's other kind guards, so every error the library throws
+                stays a <code>FITSException</code>. This restores the fail-loud behavior of the original's
+                compile-exhaustive switch (a future fourth kind now throws rather than serializing zero bytes) at the
+                cost of one currently-unreachable branch. Re-verified green (185 tests, 0 warnings) in Debug and
+                Release.</p>
+        </div>
+        <div class="field">
+            <div class="label">Automated review</div>
+            <p>One independent fresh-context round; converged immediately (no Critical/High/Medium findings). The reviewer
+                compared the port method-by-method against the original (type and test suite), read every ported
+                dependency, verified the 0-warning build under <code>TreatWarningsAsErrors</code> and the 185-test suite
+                in Debug and Release, and confirmed the clean-section byte-for-byte guarantee, the finalization
+                ordering/trimming, the structural append rules, the absence of regressions (the M6 stub surface and its
+                single call site are intact), and full convention adherence.</p>
+            <ul>
+                <li><em>Non-exhaustive <code>switch</code> in <code>AppendSerializedData</code> has no
+                    <code>default</code></em> &mdash; Low &mdash; Deferred (surfaced to the maintainer): safe today (the
+                    three <code>Kind</code> cases are exhaustive and the branch runs only when dirty), but a future
+                    fourth kind would serialize to zero bytes silently rather than failing at compile time as the
+                    original's exhaustive switch does. A <code>default: throw</code> would restore that guarantee at the
+                    cost of a currently-unreachable branch &mdash; weighed against the M5 precedent of avoiding dead
+                    defensive code when an invariant already guarantees safety.</li>
+                <li><em><code>Data</code> is a throwing property</em> &mdash; Info &mdash; Deferred: the intended mirror
+                    of the original's throwing computed property; runs counter to the general .NET guideline
+                    (<code>CA1065</code>, not enabled here) and will recur on <code>FITSFile</code> in M9.</li>
+                <li><em><code>catch( FITSException )</code> in the orphaned-<code>CONTINUE</code> fallback is narrower
+                    than the original's catch-all</em> &mdash; Info &mdash; Deferred: behavior is identical today
+                    (<code>FITSProperty.Merge</code> only throws <code>FITSException</code>) and the narrower catch is
+                    arguably safer; revisit only if <code>Merge</code>'s throw contract broadens.</li>
+                <li><em>Clean-path serialization double-copies the retained bytes</em> &mdash; Info &mdash; Deferred: a
+                    faithful reproduction of the original; the shared accumulator the M9 file layer needs legitimately
+                    requires the writer, so not worth specializing for M8.</li>
+            </ul>
+        </div>
+        <div class="field">
+            <div class="label">Review comments</div>
+            <ol>
+                <li><strong>Non-exhaustive serialization switch (finding 1).</strong> Fix it &mdash; add a
+                    <code>default</code> case to the <code>AppendSerializedData</code> switch so an unhandled section
+                    <code>Kind</code> fails loudly instead of silently serializing zero bytes. (Findings 2&ndash;4, all
+                    Info, were left as-is.)</li>
+            </ol>
+        </div>
     </div>
 
     <!-- M9 -->

@@ -1067,7 +1067,7 @@ public class FITSPropertyTests
     [ Fact ]
     public void EditingMarksTheOwningSectionForReserialization()
     {
-        FITSSection  section  = new FITSSection();
+        FITSSection  section  = new FITSSection( FITSSection.Kind.Header, block: null );
         FITSProperty property = new FITSProperty( "OBJECT", FITSValue.String( "M42" ), FITSSerializationOptions.Strict, "note" ) { Section = section };
 
         Assert.False( section.NeedsSerialization );
