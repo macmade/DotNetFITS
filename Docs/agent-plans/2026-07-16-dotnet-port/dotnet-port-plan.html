@@ -314,7 +314,7 @@
         <ol>
             <li><a href="#m1"><span class="num">M1</span> Project bootstrap, conventions &amp; shared constants</a> <span class="capsule status-completed">Completed</span></li>
             <li><a href="#m2"><span class="num">M2</span> Errors &amp; option sets</a> <span class="capsule status-completed">Completed</span></li>
-            <li><a href="#m3"><span class="num">M3</span> Low-level helpers &amp; test infrastructure</a> <span class="capsule status-not-started">Not started</span></li>
+            <li><a href="#m3"><span class="num">M3</span> Low-level helpers &amp; test infrastructure</a> <span class="capsule status-completed">Completed</span></li>
         </ol>
 
         <div class="phase">Phase 2 &middot; Value &amp; block layer</div>
@@ -579,7 +579,7 @@
     <div class="milestone" id="m3">
         <div class="m-head">
             <h3>M3 &middot; Low-level helpers &amp; test infrastructure</h3>
-            <span class="capsule status-not-started">Not started</span>
+            <span class="capsule status-completed">Completed</span>
         </div>
         <div class="field">
             <div class="label">Goal</div>
@@ -596,11 +596,114 @@
                 <li class="task">Port the <code>CharacterSet</code>, <code>String</code>, <code>Data</code>, and <code>TestUtilities</code> self-tests.</li>
             </ul>
         </div>
-        <div class="field"><div class="label">Status</div><span class="capsule status-not-started">Not started</span></div>
-        <div class="field"><div class="label">Completed</div><span class="placeholder">&mdash;</span></div>
-        <div class="field"><div class="label">Implementation notes</div><p class="placeholder">To be filled in as work progresses.</p></div>
-        <div class="field"><div class="label">Automated review</div><p class="placeholder">To be filled in by the automated review loop.</p></div>
-        <div class="field"><div class="label">Review comments</div><p class="placeholder">Awaiting human review.</p></div>
+        <div class="field"><div class="label">Status</div><span class="capsule status-completed">Completed</span></div>
+        <div class="field"><div class="label">Completed</div>2026-07-18</div>
+        <div class="field">
+            <div class="label">Implementation notes</div>
+            <p>Implemented with TDD &mdash; each unit written test-first and watched fail (compile-level red for the
+                new types/members) before being made to pass. Runs green in Debug <em>and</em> Release (0 warnings
+                under warnings-as-errors, nullable and overflow checks active); the suite grew from 18 to
+                <strong>38 tests</strong> (20 added).</p>
+            <ul>
+                <li><strong>FITSCharacterSet (internal).</strong> Ports <code>CharacterSet.swift</code>. .NET has no
+                    <code>CharacterSet</code>, so each Swift set became a <code>char</code> membership predicate
+                    (<code>IsPadding</code>, <code>IsPaddingWithNul</code>, <code>IsKeyword</code>), exposed as static
+                    methods so they convert to <code>Func&lt;char, bool&gt;</code> method groups for the trimming
+                    helpers. Kept <code>internal</code> per the plan (the predicate shape does not mirror the Swift
+                    <code>CharacterSet</code> API). Tested by scanning the whole <code>char</code> range against an
+                    oracle &mdash; the C# equivalent of Swift's remove-then-assert-empty. 3 tests.</li>
+                <li><strong>StringExtensions trimming (public).</strong> Ports <code>String.swift</code> to
+                    <code>LeftTrimming</code>/<code>RightTrimming</code>, taking a <code>Func&lt;char, bool&gt;</code>
+                    predicate (not a <code>CharacterSet</code>) via index-scan loops equivalent to Swift's
+                    <code>firstIndex</code>/<code>lastIndex</code>. The class was promoted from <code>internal</code> to
+                    <code>public</code> so the two new helpers are public (matching Swift's <code>public extension
+                    String</code>) while <code>PaddedOrTruncated</code> (M1) stays <code>internal</code> &mdash; a
+                    public class may hold internal members, and widening a type's visibility only adds surface, so no
+                    caller regresses. 2 tests (added an all-match case beyond the Swift suite).</li>
+                <li><strong>ByteMemoryExtensions (public).</strong> Ports <code>Data.swift</code> onto
+                    <code>ReadOnlyMemory&lt;byte&gt;</code> (the zero-copy <code>Data</code> analog): the inspection
+                    helpers (<code>ContainsOnlyASCII</code>, <code>IsBlank</code>, <code>ContainsOnlyFITSPrintable</code>)
+                    scan through <code>.Span</code> using <code>IndexOfAnyExceptInRange</code> /
+                    <code>IndexOfAnyExcept</code> (declarative, allocation-free, faithful to Swift's
+                    <code>allSatisfy</code> including vacuous-true on empty); <code>Chunked</code> validates size and
+                    length, throwing <code>FITSException.DataError</code>, and returns storage-sharing slices. Added an
+                    <code>internal StartsWith(ReadOnlySpan&lt;byte&gt;)</code> convenience for the later block scanner
+                    (not part of Swift's public API, hence internal). Public overall to match Swift's <code>public
+                    extension Data</code>. 7 tests, including the sub-slice offset case (the Swift non-zero-based-slice
+                    gotcha disappears because <code>Slice</code> re-bases to 0).</li>
+                <li><strong>TestError + TestUtilities.</strong> <code>TestError</code> is an
+                    <code>internal sealed</code> exception (test-only, so a fixture precondition never surfaces as a
+                    library <code>FITSException</code>). <code>TestUtilities</code> ports the block builders
+                    (<code>DataBlock</code>, both <code>HeaderBlock</code> overloads, <code>StandardHeaderBlock</code>,
+                    <code>StandardExtensionBlock</code>), all returning <code>ReadOnlyMemory&lt;byte&gt;</code>. The
+                    record renderer reproduces Swift's <code>END</code> / commentary / <code>CONTINUE</code> / default
+                    card syntax and guards non-ASCII explicitly before <code>Encoding.ASCII.GetBytes</code> (which
+                    would otherwise substitute <code>?</code> rather than fail like Swift's
+                    <code>.data(using: .ascii)</code>). <code>TestFiles</code> locates the repo-root <code>Test
+                    Files</code> directory via <code>[CallerFilePath]</code> (the C# counterpart of Swift's
+                    <code>#filePath</code>), not copied to output, with an ordinal filename sort. The 8 self-tests live
+                    inside the class, mirroring the Swift <code>TestUtilities</code>. 8 tests.</li>
+                <li><strong>Layout.</strong> The three library helpers went in <code>Extensions/</code>;
+                    <code>TestError.cs</code> and <code>TestUtilities.cs</code> at the test-project root (mirroring
+                    <code>SwiftFITSTests</code>). One public type per file, flat <code>namespace DotNetFITS;</code> /
+                    <code>DotNetFITSTests;</code>.</li>
+            </ul>
+            <p><strong>Review follow-up (applied).</strong> After the maintainer's review:</p>
+            <ul>
+                <li>Made <code>FITSCharacterSet</code> <code>public</code> and moved it (with its test) out of
+                    <code>Extensions/</code> into a new <code>Text/</code> folder &mdash; it is a helper, not an
+                    extension; its remark was updated accordingly.</li>
+                <li>Widened <code>ByteMemoryExtensions.StartsWith</code> and
+                    <code>StringExtensions.PaddedOrTruncated</code> to <code>public</code> (overriding M1's internal
+                    decision for the latter); the <code>StringExtensions</code> class summary and the two remarks were
+                    updated to drop the internal wording.</li>
+                <li>Wrote the empty <code>TestError</code> constructor body as <code>{}</code>.</li>
+                <li>Aligned the <code>.LeftTrimming</code>/<code>.RightTrimming</code> calls in the
+                    <code>StringExtensions</code> tests, and the <code>.PadRight(&hellip;)</code> expressions and their
+                    second arguments across every <code>TestUtilities</code> block-rendering self-test.</li>
+            </ul>
+            <p>Re-verified green in Debug and Release (38 tests) after these changes. The SDK-style projects glob
+                their sources, so relocating <code>FITSCharacterSet</code> needed no <code>.csproj</code> change.</p>
+        </div>
+        <div class="field">
+            <div class="label">Automated review</div>
+            <p>One independent fresh-context round; converged immediately (no Critical/High/Medium findings). The
+                reviewer re-verified both build configurations and the 38-test suite itself, and confirmed behavioral
+                fidelity to SwiftFITS (chunk offset math, trimming edge cases, charset membership, block rendering,
+                path resolution), accessibility, culture-invariance and conventions.</p>
+            <ul>
+                <li><em>Missing blank line between <code>RightTrimming</code> and <code>PaddedOrTruncated</code></em>
+                    &mdash; Low &mdash; <strong>Fixed</strong>: the trimming methods were inserted without the trailing
+                    blank line the file otherwise keeps between members; added it.</li>
+                <li><em>Charset predicate tests use an oracle identical to the implementation</em> &mdash; Info &mdash;
+                    Deferred: a deliberate adaptation of Swift's remove-then-assert-empty (still regression-catching
+                    over the full <code>char</code> range; the keyword literal is independently re-declared in the
+                    test).</li>
+                <li><em>Block-builder error paths and empty-input behavior are untested</em> &mdash; Info &mdash;
+                    Deferred: matches the Swift suite; these are test-only helpers.</li>
+                <li><em><code>TestFiles</code> is compile-time-path bound (<code>[CallerFilePath]</code>)</em> &mdash;
+                    Info &mdash; Deferred: sound and correctly implemented (mirrors Swift's <code>#filePath</code>);
+                    only fragile if the built assembly is run from a different absolute path than the build machine
+                    (e.g. CI deterministic source-path mapping).</li>
+            </ul>
+        </div>
+        <div class="field">
+            <div class="label">Review comments</div>
+            <ol>
+                <li><strong>FITSCharacterSet visibility &amp; location.</strong> Make it <code>public</code>, and move
+                    it out of <code>Extensions/</code> &mdash; it is not an extension.</li>
+                <li><strong>Widen helpers to public.</strong> <code>ByteMemoryExtensions.StartsWith</code> and
+                    <code>StringExtensions.PaddedOrTruncated</code> should also be <code>public</code> (overriding M1's
+                    decision to keep <code>PaddedOrTruncated</code> internal).</li>
+                <li><strong>Empty braces.</strong> Write an empty body as <code>{}</code>.</li>
+                <li><strong>Align the trimming calls.</strong> Align the <code>.LeftTrimming</code> /
+                    <code>.RightTrimming</code> calls in the <code>StringExtensions</code> tests.</li>
+                <li><strong>Align the record asserts.</strong> Align the <code>.PadRight(&hellip;)</code> expressions
+                    and the second arguments in
+                    <code>TestUtilities.HeaderBlockFromKeywordsRendersEachRecord</code> and the other block-rendering
+                    self-tests.</li>
+            </ol>
+        </div>
     </div>
 
     <div class="phase-banner">Phase 2 &middot; Value &amp; block layer</div>

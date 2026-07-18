@@ -27,11 +27,68 @@ using System;
 namespace DotNetFITS;
 
 /// <summary>
-/// Internal <see cref="string"/> helpers shared across the FITS serialization
-/// code.
+/// <see cref="string"/> helpers shared across the FITS code: one-sided trimming
+/// used when parsing space-padded records, and a pad-or-truncate used when
+/// rendering fixed-width fields.
 /// </summary>
-internal static class StringExtensions
+public static class StringExtensions
 {
+    /// <summary>
+    /// Returns a copy of <paramref name="value"/> with every leading character
+    /// for which <paramref name="predicate"/> returns <c>true</c> removed.
+    /// </summary>
+    /// <remarks>
+    /// The one-sided counterpart of <see cref="RightTrimming"/>, used when
+    /// parsing space-padded FITS records. Ports the Swift
+    /// <c>leftTrimmingCharacters(in:)</c>, taking a <see cref="char"/> predicate
+    /// in place of a Foundation <c>CharacterSet</c>. Returns an empty string when
+    /// every character satisfies <paramref name="predicate"/>.
+    /// </remarks>
+    /// <param name="value">The string to trim.</param>
+    /// <param name="predicate">The predicate selecting characters to remove.</param>
+    /// <returns>
+    /// <paramref name="value"/> without its leading matching characters.
+    /// </returns>
+    public static string LeftTrimming( this string value, Func<char, bool> predicate )
+    {
+        int start = 0;
+
+        while( start < value.Length && predicate( value[ start ] ) )
+        {
+            start += 1;
+        }
+
+        return value.Substring( start );
+    }
+
+    /// <summary>
+    /// Returns a copy of <paramref name="value"/> with every trailing character
+    /// for which <paramref name="predicate"/> returns <c>true</c> removed.
+    /// </summary>
+    /// <remarks>
+    /// The one-sided counterpart of <see cref="LeftTrimming"/>, used when parsing
+    /// space-padded FITS records. Ports the Swift
+    /// <c>rightTrimmingCharacters(in:)</c>, taking a <see cref="char"/> predicate
+    /// in place of a Foundation <c>CharacterSet</c>. Returns an empty string when
+    /// every character satisfies <paramref name="predicate"/>.
+    /// </remarks>
+    /// <param name="value">The string to trim.</param>
+    /// <param name="predicate">The predicate selecting characters to remove.</param>
+    /// <returns>
+    /// <paramref name="value"/> without its trailing matching characters.
+    /// </returns>
+    public static string RightTrimming( this string value, Func<char, bool> predicate )
+    {
+        int end = value.Length;
+
+        while( end > 0 && predicate( value[ end - 1 ] ) )
+        {
+            end -= 1;
+        }
+
+        return value.Substring( 0, end );
+    }
+
     /// <summary>
     /// Returns a copy of <paramref name="value"/> adjusted to exactly
     /// <paramref name="length"/> characters: right-padded with
@@ -54,7 +111,7 @@ internal static class StringExtensions
     /// <exception cref="ArgumentOutOfRangeException">
     /// <paramref name="length"/> is negative.
     /// </exception>
-    internal static string PaddedOrTruncated( this string value, int length, char padCharacter = ' ' )
+    public static string PaddedOrTruncated( this string value, int length, char padCharacter = ' ' )
     {
         ArgumentOutOfRangeException.ThrowIfNegative( length );
 

@@ -99,4 +99,36 @@ public class StringExtensionsTests
 
         Assert.Equal( "length", exception.ParamName );
     }
+
+    /// <summary>
+    /// <see cref="StringExtensions.LeftTrimming"/> removes every leading
+    /// character matching the predicate, stops at the first that does not, and
+    /// yields an empty string when they all match.
+    /// </summary>
+    [ Fact ]
+    public void LeftTrimmingRemovesLeadingMatchingCharacters()
+    {
+        Assert.Equal( "hello, world", "    hello, world".LeftTrimming( character => character == ' ' ) );
+        Assert.Equal( "hello, world", "!!!!hello, world".LeftTrimming( character => character == '!' ) );
+        Assert.Equal( "hello, world", "!!  hello, world".LeftTrimming( character => character == ' ' || character == '!' ) );
+        Assert.Equal( "hello, world", "hello, world"    .LeftTrimming( character => character == ' ' ) );
+        Assert.Equal( "",             "    "            .LeftTrimming( character => character == ' ' ) );
+        Assert.Equal( "",             ""                .LeftTrimming( character => character == ' ' ) );
+    }
+
+    /// <summary>
+    /// <see cref="StringExtensions.RightTrimming"/> removes every trailing
+    /// character matching the predicate, stops at the first that does not, and
+    /// yields an empty string when they all match.
+    /// </summary>
+    [ Fact ]
+    public void RightTrimmingRemovesTrailingMatchingCharacters()
+    {
+        Assert.Equal( "hello, world", "hello, world    ".RightTrimming( character => character == ' ' ) );
+        Assert.Equal( "hello, world", "hello, world!!!!".RightTrimming( character => character == '!' ) );
+        Assert.Equal( "hello, world", "hello, world!!  ".RightTrimming( character => character == ' ' || character == '!' ) );
+        Assert.Equal( "hello, world", "hello, world"    .RightTrimming( character => character == ' ' ) );
+        Assert.Equal( "",             "    "            .RightTrimming( character => character == ' ' ) );
+        Assert.Equal( "",             ""                .RightTrimming( character => character == ' ' ) );
+    }
 }
