@@ -333,7 +333,7 @@
         <ol>
             <li><a href="#m8"><span class="num">M8</span> FITSSection</a> <span class="capsule status-completed">Completed</span></li>
             <li><a href="#m9"><span class="num">M9</span> FITSFile &mdash; parsing, geometry &amp; validation</a> <span class="capsule status-completed">Completed</span></li>
-            <li><a href="#m10"><span class="num">M10</span> FITSFile &mdash; construction, editing, serialization &amp; write</a> <span class="capsule status-not-started">Not started</span></li>
+            <li><a href="#m10"><span class="num">M10</span> FITSFile &mdash; construction, editing, serialization &amp; write</a> <span class="capsule status-completed">Completed</span></li>
         </ol>
 
         <div class="phase">Phase 5 &middot; Integration &amp; finalization</div>
@@ -1543,7 +1543,7 @@
     <div class="milestone" id="m10">
         <div class="m-head">
             <h3>M10 &middot; FITSFile &mdash; construction, editing, serialization &amp; write</h3>
-            <span class="capsule status-not-started">Not started</span>
+            <span class="capsule status-completed">Completed</span>
         </div>
         <div class="field">
             <div class="label">Goal</div>
@@ -1560,11 +1560,120 @@
                 <li class="task">Port the construction / editing / serialization / write portions of the <code>FITSFile</code> tests.</li>
             </ul>
         </div>
-        <div class="field"><div class="label">Status</div><span class="capsule status-not-started">Not started</span></div>
-        <div class="field"><div class="label">Completed</div><span class="placeholder">&mdash;</span></div>
-        <div class="field"><div class="label">Implementation notes</div><p class="placeholder">To be filled in as work progresses.</p></div>
-        <div class="field"><div class="label">Automated review</div><p class="placeholder">To be filled in by the automated review loop.</p></div>
-        <div class="field"><div class="label">Review comments</div><p class="placeholder">Awaiting human review.</p></div>
+        <div class="field"><div class="label">Status</div><span class="capsule status-completed">Completed</span></div>
+        <div class="field"><div class="label">Completed</div>2026-07-18</div>
+        <div class="field">
+            <div class="label">Implementation notes</div>
+            <p>Implemented with TDD &mdash; the write-path test suite written first and watched fail at compile level
+                (the <code>Data</code>/<code>SerializedData</code>/<code>Write</code> members, the from-scratch
+                constructor and the edit methods did not yet exist), then made to pass. Green in Debug <em>and</em>
+                Release (0 warnings under warnings-as-errors, nullable and overflow checks active); the suite grew from
+                231 to <strong>251 tests</strong> (20 added).</p>
+            <ul>
+                <li><strong>From-scratch constructors.</strong> A private designated
+                    <code>FITSFile( List&lt; FITSSection &gt; sections )</code> that adopts sections without validating,
+                    and a public
+                    <code>FITSFile( int bitpix, IReadOnlyList&lt; int &gt; axes, ReadOnlyMemory&lt; byte &gt;? data = null )</code>
+                    chaining to it. C# cannot run the throwing section-building before a <code>: this( &hellip; )</code>
+                    initializer, so a static <code>PrimarySections</code> helper builds the list first (the analog of the
+                    original's inline convenience-init body). <code>axes</code> is an <code>IReadOnlyList&lt; int &gt;</code>
+                    and the optional data is a <code>ReadOnlyMemory&lt; byte &gt;?</code>, pattern-matched with
+                    <code>is ReadOnlyMemory&lt; byte &gt; payload</code>.</li>
+                <li><strong>Mandatory-keyword builders.</strong> <code>MandatoryPrimaryProperties</code>,
+                    <code>MandatoryExtensionProperties</code> and <code>NaxisProperties</code> build the properties with
+                    <code>FITSSerializationOptions.Strict</code>, integers cast to <code>long</code> for the integer
+                    convenience constructor, and each <code>NAXISn</code> name formatted with
+                    <code>CultureInfo.InvariantCulture</code>. The extension builder keeps the FITS 4.0 order
+                    (<code>XTENSION</code>, <code>BITPIX</code>, <code>NAXIS</code>, <code>NAXISn</code>,
+                    <code>PCOUNT</code>, <code>GCOUNT</code>).</li>
+                <li><strong>Extension management.</strong> <code>AppendExtension</code> returns the header for further
+                    editing (C# needs no <code>@discardableResult</code>). <code>DeclareExtensionsInPrimary</code> inserts
+                    <code>EXTEND = T</code> immediately after the <code>NAXISn</code> block, computing the index as
+                    <code>checked( ( Naxis ?? 0 ) + 3 )</code> clamped with
+                    <code>Math.Max( 0, Math.Min( position, count ) )</code> and catching <code>OverflowException</code>
+                    &rarr; append, so a pathological <code>NAXIS</code> (e.g. <code>long.MaxValue</code>) cannot
+                    overflow-trap. <code>RemoveExtension</code>/<code>MoveExtension</code> (and
+                    <code>SetExtensionData</code>) write the bounds guard as <code>index &gt;= units.Count - 1</code>
+                    rather than <code>index + 1 &gt;= units.Count</code>, so a pathological index
+                    (<code>int.MaxValue</code>) is rejected before any <code>index + 1</code>. <code>HduUnits</code>
+                    groups each header/extension with its immediately-following data segment.</li>
+                <li><strong>Geometry editing.</strong> <code>SetPrimaryData</code> and <code>SetExtensionData</code>
+                    rewrite the geometry then set/replace/clear the data segment together;
+                    <code>SetExtensionData</code> locates the header by reference (<code>ReferenceEquals</code>) before
+                    mutating, so a failure leaves the file untouched (all-or-nothing). <code>ApplyGeometry</code> replaces
+                    <code>BITPIX</code>/<code>NAXIS</code> in place, removes the obsolete <code>NAXISn</code> records, and
+                    re-inserts the new set immediately after <code>NAXIS</code> (reusing <code>NaxisProperties</code>), so
+                    keywords after the old block (<code>PCOUNT</code>/<code>GCOUNT</code>) keep their order.
+                    <code>IsNaxisIndex</code> uses an ordinal <code>StartsWith</code> plus an ASCII-digit tail
+                    (<code>char.IsAsciiDigit</code>).</li>
+                <li><strong>Serialization &amp; write.</strong> <code>Data</code> is the strict convenience over
+                    <code>SerializedData( options )</code>, which validates then concatenates every section through an
+                    <code>ArrayBufferWriter&lt; byte &gt;</code> (the accumulator M8 established, driven here).
+                    <code>Write( path, options )</code> serializes <em>outside</em> the <code>try</code> so validation
+                    errors propagate unchanged, then writes atomically &mdash; to a same-directory temporary file moved
+                    into place with <code>File.Move( overwrite: true )</code> (a same-volume rename, so no reader sees a
+                    half-written file) &mdash; mapping any write failure to <code>CannotWriteFile</code> and cleaning up
+                    the temporary on failure. <code>ValidateForSerialization</code> reproduces the original ordering:
+                    primary-header-first, per-unit mandatory keywords (via the M9 <code>ValidateMandatoryKeywords</code>
+                    and <code>ExpectedDataSize</code>), and a data-size match gated on <code>AllowDataSizeMismatch</code>;
+                    each section's <code>Properties</code> snapshot is captured once per iteration. The
+                    zero-data-primary-with-data message keeps the &ldquo;data segment &hellip; NAXIS = 0&rdquo; wording
+                    the tests assert on.</li>
+                <li><strong>Type shape.</strong> <code>FITSFile</code> stays a plain <code>public class</code> (not
+                    <code>sealed</code>): it was deliberately left open across M1/M9/M10, and the original is a
+                    non-<code>final</code> class. The <code>FITSFile.cs</code> diff is purely additive (one
+                    <code>using System.Buffers;</code> plus the new members); no M9 read-path method was altered.</li>
+                <li><strong>Tests.</strong> Ported all remaining <code>FITSFile</code> write-path tests (from-scratch
+                    build/round-trip, append/remove/move extensions, primary/extension re-shaping, strict-vs-lenient
+                    serialization, disk write/reread, the pathological-index and pathological-<code>NAXIS</code> guards,
+                    and the all-sample-files round-trips under both strict <code>Data</code> and lenient
+                    <code>SerializedData</code>), and completed the 6 M9-deferred parse-only tests with their
+                    byte-for-byte round-trip assertions (<code>OrphanedContinueFileParses</code> renamed to
+                    <code>OrphanedContinueFileRoundTrips</code> to match the original; the other five augmented in place).
+                    <code>serializationConstants</code> stays covered by <code>SizeConstantsMatchTheFITSStandard</code>.
+                    The 251 count sits above the original <code>FITSFile</code> test file's count because C# split and
+                    added guard tests across earlier milestones; the final parity cross-check is M11.</li>
+            </ul>
+        </div>
+        <div class="field">
+            <div class="label">Automated review</div>
+            <p>One independent fresh-context round; converged immediately (no Critical/High/Medium findings). The
+                reviewer compared the write path method-by-method against the original, traced the overflow-safety of the
+                pathological-index and <code>EXTEND</code>-insertion paths by hand, verified the byte-for-byte round-trip
+                reasoning (clean sections re-emit retained bytes even under strict), confirmed the diff is purely
+                additive with no M9 / <code>FITSSection</code> / <code>FITSProperty</code> regression, and re-checked the
+                0-warning build and the 251-test suite in Debug and Release. Two findings, both Low/Info:</p>
+            <ul>
+                <li><em><code>SerializedData</code> accumulates section sizes in <code>int</code> via
+                    <code>Enumerable.Sum</code>, so a from-scratch file whose <em>total</em> serialized size exceeds
+                    <code>int.MaxValue</code> (&gt; ~2&nbsp;GB) would throw <code>OverflowException</code> rather than a
+                    <code>FITSException</code></em> &mdash; Low &mdash; Deferred: the root cause is M9's
+                    <code>int</code>-typed <code>FITSSection.SerializedByteCount</code> (outside this milestone's
+                    two-file scope), and a &gt; 2&nbsp;GB serialization cannot fit a single <code>byte[]</code>
+                    regardless, so it fails loud either way. Surfaced to the maintainer.</li>
+                <li><em>The atomic write gives visibility atomicity (temp file + <code>File.Move</code> rename) but not
+                    crash-durability (no <code>fsync</code> before the move), unlike Foundation's <code>.atomic</code>
+                    write</em> &mdash; Info &mdash; Deferred: the doc comment only promises visibility atomicity, which
+                    holds &mdash; a reader never sees a half-written file.</li>
+            </ul>
+        </div>
+        <div class="field">
+            <div class="label">Review comments</div>
+            <ol>
+                <li><strong>Automated finding 1 (serialized-size accumulation) &mdash; question.</strong> How is the
+                    serialized-size accumulation handled in the original &mdash; i.e. is the <code>int</code>-vs-64-bit
+                    <code>OverflowException</code> behavior a port divergence? (A genuine question, not a change
+                    request.) <em>Answer &amp; resolution:</em> the original uses 64-bit <code>Int</code> for
+                    <code>dataSize</code>/<code>serializedByteCount</code> and accumulates in 64 bits
+                    (<code>FITSSection.swift:384,399</code>, <code>FITSFile.swift:856</code>), so it <em>is</em> a
+                    divergence &mdash; but .NET's <code>ReadOnlyMemory&lt; byte &gt;</code>/<code>byte[]</code> are
+                    <code>int</code>-capped (~2&nbsp;GB), so a single section's size genuinely is <code>int</code> and a
+                    &gt; 2&nbsp;GB total cannot be materialized into one buffer regardless; the overflow is unreachable
+                    and fails loud (and <code>ValidateForSerialization</code> already promotes to <code>long</code>,
+                    matching the original's <code>Int64( &hellip; )</code> at <code>FITSFile.swift:946</code>). Maintainer
+                    approved keeping it as-is &mdash; no code change.</li>
+            </ol>
+        </div>
     </div>
 
     <div class="phase-banner">Phase 5 &middot; Integration &amp; finalization</div>

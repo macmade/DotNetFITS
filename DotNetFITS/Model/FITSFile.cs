@@ -23,6 +23,7 @@
  ******************************************************************************/
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -164,6 +165,50 @@ public class FITSFile
 
         this.SectionList = SectionsFrom( blocks, options );
     }
+
+    /// <summary>
+    /// Builds a file from a list of sections, adopting them without parsing or
+    /// validating.
+    /// </summary>
+    /// <remarks>
+    /// The private designated constructor behind the from-scratch construction API.
+    /// Validation happens on write, via
+    /// <see cref="SerializedData(FITSSerializationOptions)"/>.
+    /// </remarks>
+    /// <param name="sections">
+    /// The file's sections, in order, starting with the primary header.
+    /// </param>
+    private FITSFile( List< FITSSection > sections )
+    {
+        this.SectionList = sections;
+    }
+
+    /// <summary>
+    /// Builds a primary HDU from scratch, with its mandatory keywords populated to a
+    /// standards-compliant minimum.
+    /// </summary>
+    /// <remarks>
+    /// Assembles a primary header carrying <c>SIMPLE</c>, <c>BITPIX</c>, <c>NAXIS</c>
+    /// and one <c>NAXISn</c> per axis, followed by a data segment when
+    /// <paramref name="data"/> is provided. The file is not validated here;
+    /// <see cref="SerializedData(FITSSerializationOptions)"/> and
+    /// <see cref="Write(string, FITSSerializationOptions)"/> validate it against the
+    /// FITS 4.0 standard on write.
+    /// </remarks>
+    /// <param name="bitpix">
+    /// The <c>BITPIX</c> value (the standard permits 8, 16, 32, 64, -32 and -64; an
+    /// out-of-range value is rejected on write).
+    /// </param>
+    /// <param name="axes">
+    /// The <c>NAXISn</c> dimensions, in order; its count becomes <c>NAXIS</c>. An empty
+    /// list is a <c>NAXIS = 0</c> primary with no data.
+    /// </param>
+    /// <param name="data">The data-segment bytes, or <c>null</c> for none.</param>
+    /// <exception cref="FITSException">
+    /// Any error raised while building the mandatory keywords.
+    /// </exception>
+    public FITSFile( int bitpix, IReadOnlyList< int > axes, ReadOnlyMemory< byte >? data = null ) : this( PrimarySections( bitpix, axes, data ) )
+    {}
 
     /// <summary>
     /// Reads a file's bytes, classifying a failure as an invalid location or an
@@ -517,6 +562,623 @@ public class FITSFile
         catch( OverflowException )
         {
             throw FITSException.InvalidFileData( "Data geometry overflows 64-bit size" );
+        }
+    }
+
+    /// <summary>
+    /// Appends an extension HDU to the file, with its mandatory keywords populated to a
+    /// standards-compliant minimum.
+    /// </summary>
+    /// <remarks>
+    /// Assembles an extension header carrying <c>XTENSION</c>, <c>BITPIX</c>,
+    /// <c>NAXIS</c>, one <c>NAXISn</c> per axis, <c>PCOUNT</c> and <c>GCOUNT</c>,
+    /// followed by a data segment when <paramref name="data"/> is provided, and appends
+    /// them to the file. It also declares <c>EXTEND = T</c> in the primary header when
+    /// not already present (FITS 4.0 section 4.4.1.1), placed immediately after the
+    /// primary's <c>NAXISn</c> block.
+    /// <para>
+    /// The file is not validated here;
+    /// <see cref="SerializedData(FITSSerializationOptions)"/> and
+    /// <see cref="Write(string, FITSSerializationOptions)"/> validate it on write.
+    /// </para>
+    /// </remarks>
+    /// <param name="type">
+    /// The <c>XTENSION</c> type value (e.g. <c>IMAGE</c>, <c>TABLE</c>, <c>BINTABLE</c>).
+    /// </param>
+    /// <param name="bitpix">The <c>BITPIX</c> value.</param>
+    /// <param name="axes">The <c>NAXISn</c> dimensions, in order; its count becomes <c>NAXIS</c>.</param>
+    /// <param name="pcount">The <c>PCOUNT</c> value.</param>
+    /// <param name="gcount">The <c>GCOUNT</c> value.</param>
+    /// <param name="data">The data-segment bytes, or <c>null</c> for none.</param>
+    /// <returns>The appended extension header section, for further editing.</returns>
+    /// <exception cref="FITSException">
+    /// The file has no primary header, or any error raised while building the keywords.
+    /// </exception>
+    public FITSSection AppendExtension( string type, int bitpix, IReadOnlyList< int > axes, int pcount = 0, int gcount = 1, ReadOnlyMemory< byte >? data = null )
+    {
+        IReadOnlyList< FITSProperty > properties = MandatoryExtensionProperties( type, bitpix, axes, pcount, gcount );
+        FITSSection                   header     = new FITSSection( FITSSection.Kind.Extension, properties );
+
+        this.DeclareExtensionsInPrimary();
+
+        this.SectionList.Add( header );
+
+        if( data is ReadOnlyMemory< byte > payload )
+        {
+            this.SectionList.Add( new FITSSection( payload ) );
+        }
+
+        return header;
+    }
+
+    /// <summary>
+    /// Builds the sections of a from-scratch primary HDU: a header of the mandatory
+    /// keywords, optionally followed by a data segment.
+    /// </summary>
+    /// <remarks>
+    /// A static helper so the public from-scratch constructor can build the sections
+    /// before delegating to the private section-adopting constructor.
+    /// </remarks>
+    /// <param name="bitpix">The <c>BITPIX</c> value.</param>
+    /// <param name="axes">The <c>NAXISn</c> dimensions, in order.</param>
+    /// <param name="data">The data-segment bytes, or <c>null</c> for none.</param>
+    /// <returns>The primary HDU's sections, starting with the header.</returns>
+    /// <exception cref="FITSException">
+    /// Any error raised while building the mandatory keywords.
+    /// </exception>
+    private static List< FITSSection > PrimarySections( int bitpix, IReadOnlyList< int > axes, ReadOnlyMemory< byte >? data )
+    {
+        IReadOnlyList< FITSProperty > properties = MandatoryPrimaryProperties( bitpix, axes );
+        List< FITSSection >           sections   = [ new FITSSection( FITSSection.Kind.Header, properties ) ];
+
+        if( data is ReadOnlyMemory< byte > payload )
+        {
+            sections.Add( new FITSSection( payload ) );
+        }
+
+        return sections;
+    }
+
+    /// <summary>
+    /// Builds the mandatory keywords of a primary header - <c>SIMPLE</c>, <c>BITPIX</c>,
+    /// <c>NAXIS</c> and one <c>NAXISn</c> per axis - in the order FITS 4.0 section 4.4.1
+    /// requires.
+    /// </summary>
+    /// <param name="bitpix">The <c>BITPIX</c> value.</param>
+    /// <param name="axes">The <c>NAXISn</c> dimensions, in order.</param>
+    /// <returns>The mandatory primary-header properties, in order.</returns>
+    /// <exception cref="FITSException">Any error raised while building a property.</exception>
+    private static IReadOnlyList< FITSProperty > MandatoryPrimaryProperties( int bitpix, IReadOnlyList< int > axes )
+    {
+        List< FITSProperty > properties =
+        [
+            new FITSProperty( "SIMPLE", true,               FITSSerializationOptions.Strict ),
+            new FITSProperty( "BITPIX", ( long )bitpix,     FITSSerializationOptions.Strict ),
+            new FITSProperty( "NAXIS",  ( long )axes.Count, FITSSerializationOptions.Strict ),
+        ];
+
+        properties.AddRange( NaxisProperties( axes ) );
+
+        return properties;
+    }
+
+    /// <summary>
+    /// Builds the mandatory keywords of an extension header - <c>XTENSION</c>,
+    /// <c>BITPIX</c>, <c>NAXIS</c>, one <c>NAXISn</c> per axis, <c>PCOUNT</c> and
+    /// <c>GCOUNT</c> - in the order FITS 4.0 section 4.4.1 requires.
+    /// </summary>
+    /// <param name="type">The <c>XTENSION</c> type value.</param>
+    /// <param name="bitpix">The <c>BITPIX</c> value.</param>
+    /// <param name="axes">The <c>NAXISn</c> dimensions, in order.</param>
+    /// <param name="pcount">The <c>PCOUNT</c> value.</param>
+    /// <param name="gcount">The <c>GCOUNT</c> value.</param>
+    /// <returns>The mandatory extension-header properties, in order.</returns>
+    /// <exception cref="FITSException">Any error raised while building a property.</exception>
+    private static IReadOnlyList< FITSProperty > MandatoryExtensionProperties( string type, int bitpix, IReadOnlyList< int > axes, int pcount, int gcount )
+    {
+        List< FITSProperty > properties =
+        [
+            new FITSProperty( "XTENSION", type,               FITSSerializationOptions.Strict ),
+            new FITSProperty( "BITPIX",   ( long )bitpix,     FITSSerializationOptions.Strict ),
+            new FITSProperty( "NAXIS",    ( long )axes.Count, FITSSerializationOptions.Strict ),
+        ];
+
+        properties.AddRange( NaxisProperties( axes ) );
+        properties.Add( new FITSProperty( "PCOUNT", ( long )pcount, FITSSerializationOptions.Strict ) );
+        properties.Add( new FITSProperty( "GCOUNT", ( long )gcount, FITSSerializationOptions.Strict ) );
+
+        return properties;
+    }
+
+    /// <summary>
+    /// Builds the <c>NAXISn</c> properties for a set of axis dimensions.
+    /// </summary>
+    /// <param name="axes">The axis dimensions, in order; axis <c>n</c> becomes <c>NAXISn</c>.</param>
+    /// <returns>The <c>NAXISn</c> properties, in order.</returns>
+    /// <exception cref="FITSException">Any error raised while building a property.</exception>
+    private static IReadOnlyList< FITSProperty > NaxisProperties( IReadOnlyList< int > axes )
+    {
+        return axes.Select
+        (
+            ( axis, index ) => new FITSProperty( $"NAXIS{ ( index + 1 ).ToString( CultureInfo.InvariantCulture ) }", ( long )axis, FITSSerializationOptions.Strict )
+        )
+        .ToList();
+    }
+
+    /// <summary>
+    /// Declares <c>EXTEND = T</c> in the primary header when it is not already present.
+    /// </summary>
+    /// <remarks>
+    /// FITS 4.0 section 4.4.1.1 requires the primary header to carry <c>EXTEND = T</c>
+    /// when the file contains extensions. The keyword is inserted immediately after the
+    /// primary's <c>NAXISn</c> block.
+    /// </remarks>
+    /// <exception cref="FITSException">
+    /// The file has no primary header, or any error raised while inserting the keyword.
+    /// </exception>
+    private void DeclareExtensionsInPrimary()
+    {
+        FITSSection? primary = this.SectionList.FirstOrDefault();
+
+        if( primary is null || primary.SectionKind != FITSSection.Kind.Header )
+        {
+            throw FITSException.InvalidFileData( "Cannot append an extension without a primary header" );
+        }
+
+        if( primary[ "EXTEND" ] is not null )
+        {
+            return;
+        }
+
+        // Compute the position after the NAXISn block without trapping on a pathological
+        // NAXIS: an addition that overflows can only denote a position past the end, so
+        // it clamps to the property count (append).
+        FITSProperty extend = new FITSProperty( "EXTEND", true, FITSSerializationOptions.Strict );
+        int          count  = primary.Properties.Count;
+        int          index;
+
+        try
+        {
+            long position = checked( ( primary.Naxis ?? 0 ) + 3 );
+            index         = ( int )Math.Max( 0, Math.Min( position, count ) );
+        }
+        catch( OverflowException )
+        {
+            index = count;
+        }
+
+        primary.Insert( extend, index );
+    }
+
+    /// <summary>
+    /// Removes an extension HDU - its header and any following data segment.
+    /// </summary>
+    /// <remarks>
+    /// Only the removed sections change; every other section keeps its bytes (a clean
+    /// section still re-emits its retained bytes on write). The primary's <c>EXTEND</c>
+    /// keyword is left untouched.
+    /// </remarks>
+    /// <param name="index">
+    /// The 0-based index of the extension among the file's extensions (the primary HDU
+    /// is not counted).
+    /// </param>
+    /// <exception cref="FITSException"><paramref name="index"/> is out of range.</exception>
+    public void RemoveExtension( int index )
+    {
+        List< List< FITSSection > > units = this.HduUnits();
+
+        // index >= units.Count - 1 rather than index + 1 >= units.Count so a pathological
+        // index cannot overflow-trap the addition.
+        if( index < 0 || index >= units.Count - 1 )
+        {
+            throw FITSException.InvalidFileData( $"Extension index { index.ToString( CultureInfo.InvariantCulture ) } out of range" );
+        }
+
+        units.RemoveAt( index + 1 );
+
+        this.SectionList = units.SelectMany( unit => unit ).ToList();
+    }
+
+    /// <summary>
+    /// Moves an extension HDU to a different position among the extensions.
+    /// </summary>
+    /// <remarks>
+    /// Moves the whole HDU unit (its header and any following data segment). The primary
+    /// HDU is never moved, and the moved sections keep their bytes.
+    /// </remarks>
+    /// <param name="from">The 0-based index of the extension to move.</param>
+    /// <param name="to">The 0-based index it should occupy after the move.</param>
+    /// <exception cref="FITSException">Either index is out of range.</exception>
+    public void MoveExtension( int from, int to )
+    {
+        List< List< FITSSection > > units = this.HduUnits();
+        int                         count = units.Count - 1;
+
+        if( from < 0 || from >= count || to < 0 || to >= count )
+        {
+            throw FITSException.InvalidFileData( $"Extension index out of range (from { from.ToString( CultureInfo.InvariantCulture ) }, to { to.ToString( CultureInfo.InvariantCulture ) })" );
+        }
+
+        List< FITSSection > unit = units[ from + 1 ];
+
+        units.RemoveAt( from + 1 );
+        units.Insert( to + 1, unit );
+
+        this.SectionList = units.SelectMany( group => group ).ToList();
+    }
+
+    /// <summary>
+    /// Groups the file's sections into HDU units - each a header (or extension) section
+    /// plus any immediately-following data segment.
+    /// </summary>
+    /// <returns>The HDU units in file order; the first is the primary HDU.</returns>
+    private List< List< FITSSection > > HduUnits()
+    {
+        List< List< FITSSection > > units = new List< List< FITSSection > >();
+        int                         index = 0;
+
+        while( index < this.SectionList.Count )
+        {
+            FITSSection header = this.SectionList[ index ];
+            index += 1;
+
+            if( index < this.SectionList.Count && this.SectionList[ index ].SectionKind == FITSSection.Kind.Data )
+            {
+                units.Add( [ header, this.SectionList[ index ] ] );
+
+                index += 1;
+            }
+            else
+            {
+                units.Add( [ header ] );
+            }
+        }
+
+        return units;
+    }
+
+    /// <summary>
+    /// Replaces the primary HDU's data, updating its geometry keywords to match.
+    /// </summary>
+    /// <remarks>
+    /// Rewrites the primary header's <c>BITPIX</c>, <c>NAXIS</c> and <c>NAXISn</c> from
+    /// the supplied dimensions and sets (or clears) its data segment, so header and data
+    /// cannot drift out of sync. The result is still validated on write.
+    /// </remarks>
+    /// <param name="bitpix">The new <c>BITPIX</c> value.</param>
+    /// <param name="axes">The new <c>NAXISn</c> dimensions, in order.</param>
+    /// <param name="data">The new data-segment bytes, or <c>null</c> to remove the data segment.</param>
+    /// <exception cref="FITSException">
+    /// The file has no primary header, or any error raised while rewriting the keywords.
+    /// </exception>
+    public void SetPrimaryData( int bitpix, IReadOnlyList< int > axes, ReadOnlyMemory< byte >? data )
+    {
+        FITSSection? primary = this.SectionList.FirstOrDefault();
+
+        if( primary is null || primary.SectionKind != FITSSection.Kind.Header )
+        {
+            throw FITSException.InvalidFileData( "The file has no primary header" );
+        }
+
+        ApplyGeometry( primary, bitpix, axes );
+        this.SetDataSegment( 0, data );
+    }
+
+    /// <summary>
+    /// Replaces an extension HDU's data, updating its geometry keywords to match.
+    /// </summary>
+    /// <remarks>
+    /// Rewrites the extension header's <c>BITPIX</c>, <c>NAXIS</c> and <c>NAXISn</c> from
+    /// the supplied dimensions (preserving <c>XTENSION</c>, <c>PCOUNT</c> and
+    /// <c>GCOUNT</c>) and sets (or clears) its data segment. The result is still
+    /// validated on write.
+    /// </remarks>
+    /// <param name="index">The 0-based index of the extension among the file's extensions.</param>
+    /// <param name="bitpix">The new <c>BITPIX</c> value.</param>
+    /// <param name="axes">The new <c>NAXISn</c> dimensions, in order.</param>
+    /// <param name="data">The new data-segment bytes, or <c>null</c> to remove the data segment.</param>
+    /// <exception cref="FITSException">
+    /// <paramref name="index"/> is out of range, or any error raised while rewriting the
+    /// keywords.
+    /// </exception>
+    public void SetExtensionData( int index, int bitpix, IReadOnlyList< int > axes, ReadOnlyMemory< byte >? data )
+    {
+        List< List< FITSSection > > units = this.HduUnits();
+
+        // index >= units.Count - 1 rather than index + 1 >= units.Count so a pathological
+        // index cannot overflow-trap the addition.
+        if( index < 0 || index >= units.Count - 1 )
+        {
+            throw FITSException.InvalidFileData( $"Extension index { index.ToString( CultureInfo.InvariantCulture ) } out of range" );
+        }
+
+        FITSSection header = units[ index + 1 ][ 0 ];
+
+        // Locate the header before mutating it, so a failure leaves the file untouched
+        // (all-or-nothing).
+        int headerIndex = this.SectionList.FindIndex( section => ReferenceEquals( section, header ) );
+
+        if( headerIndex < 0 )
+        {
+            throw FITSException.InvalidFileData( "Extension header not found" );
+        }
+
+        ApplyGeometry( header, bitpix, axes );
+        this.SetDataSegment( headerIndex, data );
+    }
+
+    /// <summary>
+    /// Rewrites a header's geometry keywords (<c>BITPIX</c>, <c>NAXIS</c>,
+    /// <c>NAXISn</c>) from a set of dimensions, preserving every other keyword.
+    /// </summary>
+    /// <remarks>
+    /// <c>BITPIX</c> and <c>NAXIS</c> are replaced in place; the old <c>NAXISn</c>
+    /// records are removed and the new set inserted immediately after <c>NAXIS</c>, so
+    /// keywords that followed the old <c>NAXISn</c> block (such as <c>PCOUNT</c>/
+    /// <c>GCOUNT</c>) keep their relative order.
+    /// </remarks>
+    /// <param name="header">The header or extension section to update.</param>
+    /// <param name="bitpix">The new <c>BITPIX</c> value.</param>
+    /// <param name="axes">The new <c>NAXISn</c> dimensions, in order.</param>
+    /// <exception cref="FITSException">Any error raised while building or placing a keyword.</exception>
+    private static void ApplyGeometry( FITSSection header, int bitpix, IReadOnlyList< int > axes )
+    {
+        header.SetProperty( new FITSProperty( "BITPIX", ( long )bitpix,     FITSSerializationOptions.Strict ) );
+        header.SetProperty( new FITSProperty( "NAXIS",  ( long )axes.Count, FITSSerializationOptions.Strict ) );
+
+        List< string > obsolete = header.Properties.Where( property => IsNaxisIndex( property.Name ) ).Select( property => property.Name ).ToList();
+
+        foreach( string name in obsolete )
+        {
+            header.RemoveProperties( name );
+        }
+
+        List< FITSProperty > properties = header.Properties.ToList();
+        int                  naxisIndex = properties.FindIndex( property => property.Name == "NAXIS" );
+        int                  anchor     = ( naxisIndex >= 0 ? naxisIndex : properties.Count - 1 ) + 1;
+
+        IReadOnlyList< FITSProperty > axisProperties = NaxisProperties( axes );
+
+        for( int offset = 0; offset < axisProperties.Count; offset += 1 )
+        {
+            header.Insert( axisProperties[ offset ], anchor + offset );
+        }
+    }
+
+    /// <summary>
+    /// Reports whether a keyword name is an axis keyword (<c>NAXIS</c> followed by a
+    /// number), as opposed to the <c>NAXIS</c> count keyword itself.
+    /// </summary>
+    /// <param name="name">The keyword name to test.</param>
+    /// <returns><c>true</c> for <c>NAXIS1</c>, <c>NAXIS2</c>, ...; <c>false</c> otherwise.</returns>
+    private static bool IsNaxisIndex( string name )
+    {
+        if( name.StartsWith( "NAXIS", StringComparison.Ordinal ) == false || name.Length <= 5 )
+        {
+            return false;
+        }
+
+        return name.Skip( 5 ).All( character => char.IsAsciiDigit( character ) );
+    }
+
+    /// <summary>
+    /// Sets, replaces or removes the data segment following a header section.
+    /// </summary>
+    /// <param name="headerIndex">The section index of the header the data segment follows.</param>
+    /// <param name="data">The new data-segment bytes, or <c>null</c> to remove any existing one.</param>
+    /// <exception cref="FITSException">Any error raised while replacing an existing payload.</exception>
+    private void SetDataSegment( int headerIndex, ReadOnlyMemory< byte >? data )
+    {
+        int  dataIndex = headerIndex + 1;
+        bool hasData   = dataIndex < this.SectionList.Count && this.SectionList[ dataIndex ].SectionKind == FITSSection.Kind.Data;
+
+        if( data is ReadOnlyMemory< byte > payload )
+        {
+            if( hasData )
+            {
+                this.SectionList[ dataIndex ].SetDataPayload( payload );
+            }
+            else
+            {
+                this.SectionList.Insert( dataIndex, new FITSSection( payload ) );
+            }
+        }
+        else if( hasData )
+        {
+            this.SectionList.RemoveAt( dataIndex );
+        }
+    }
+
+    /// <summary>
+    /// The complete file contents, serialized and validated with the strict options.
+    /// </summary>
+    /// <remarks>
+    /// A convenience for <see cref="SerializedData(FITSSerializationOptions)"/> with
+    /// <see cref="FITSSerializationOptions.Strict"/>. An unmodified parsed file yields
+    /// its original bytes byte-for-byte; a file whose sections were modified re-renders
+    /// those sections from their model.
+    /// </remarks>
+    /// <exception cref="FITSException">
+    /// Strict validation fails, or any error raised while rendering a modified section.
+    /// </exception>
+    public ReadOnlyMemory< byte > Data => this.SerializedData( FITSSerializationOptions.Strict );
+
+    /// <summary>
+    /// The complete file contents, validated then serialized.
+    /// </summary>
+    /// <remarks>
+    /// Validates the file against the FITS 4.0 standard (mandatory keywords,
+    /// <c>BITPIX</c>/<c>NAXIS</c> geometry, data-segment size, and primary-HDU-first
+    /// ordering), then concatenates every section's serialized bytes. An unmodified
+    /// parsed file reproduces its original bytes byte-for-byte; modified sections are
+    /// re-rendered from their model.
+    /// </remarks>
+    /// <param name="options">
+    /// The serialization options to apply. <see cref="FITSSerializationOptions.Strict"/>
+    /// enforces the full standard; <see cref="FITSSerializationOptions.Lenient"/> relaxes
+    /// the data-size check and coerces invalid keywords.
+    /// </param>
+    /// <returns>The complete file bytes, a whole number of blocks.</returns>
+    /// <exception cref="FITSException">
+    /// Validation fails, or any error raised while rendering a section.
+    /// </exception>
+    public ReadOnlyMemory< byte > SerializedData( FITSSerializationOptions options )
+    {
+        this.ValidateForSerialization( options );
+
+        int                       size   = this.SectionList.Sum( section => section.SerializedByteCount );
+        ArrayBufferWriter< byte > buffer = new ArrayBufferWriter< byte >( Math.Max( 1, size ) );
+
+        foreach( FITSSection section in this.SectionList )
+        {
+            section.AppendSerializedData( buffer, options );
+        }
+
+        return buffer.WrittenMemory;
+    }
+
+    /// <summary>
+    /// Serializes the file and writes it to a file path.
+    /// </summary>
+    /// <remarks>
+    /// Serializes via <see cref="SerializedData(FITSSerializationOptions)"/> - which
+    /// validates first - then writes the bytes atomically, replacing any existing file:
+    /// the bytes go to a temporary file that is moved into place, so a reader never sees
+    /// a partially-written file.
+    /// </remarks>
+    /// <param name="path">The location to write to.</param>
+    /// <param name="options">The serialization options to apply.</param>
+    /// <exception cref="FITSException">
+    /// The bytes cannot be written (<see cref="FITSErrorKind.CannotWriteFile"/>), or any
+    /// error raised while validating or serializing.
+    /// </exception>
+    public void Write( string path, FITSSerializationOptions options )
+    {
+        ReadOnlyMemory< byte > data = this.SerializedData( options );
+
+        try
+        {
+            WriteBytesAtomically( path, data );
+        }
+        catch( Exception )
+        {
+            throw FITSException.CannotWriteFile( path );
+        }
+    }
+
+    /// <summary>
+    /// Writes bytes to a path atomically, by writing a temporary file and moving it into
+    /// place.
+    /// </summary>
+    /// <remarks>
+    /// The temporary file is created in the destination directory so the move is a
+    /// same-volume rename, and it is removed if the write or move fails.
+    /// </remarks>
+    /// <param name="path">The destination file path.</param>
+    /// <param name="data">The bytes to write.</param>
+    private static void WriteBytesAtomically( string path, ReadOnlyMemory< byte > data )
+    {
+        string fullPath  = Path.GetFullPath( path );
+        string directory = Path.GetDirectoryName( fullPath ) ?? Directory.GetCurrentDirectory();
+        string temporary = Path.Combine( directory, $"{ Guid.NewGuid().ToString() }.tmp" );
+
+        try
+        {
+            File.WriteAllBytes( temporary, data.ToArray() );
+            File.Move( temporary, fullPath, overwrite: true );
+        }
+        catch( Exception )
+        {
+            TryDelete( temporary );
+
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Deletes a file if it exists, ignoring any failure.
+    /// </summary>
+    /// <remarks>
+    /// Cleans up the temporary file of a failed atomic write without masking the original
+    /// failure.
+    /// </remarks>
+    /// <param name="path">The file path to delete.</param>
+    private static void TryDelete( string path )
+    {
+        try
+        {
+            File.Delete( path );
+        }
+        catch( IOException )
+        {
+        }
+        catch( UnauthorizedAccessException )
+        {
+        }
+    }
+
+    /// <summary>
+    /// Validates the file's structure before serialization.
+    /// </summary>
+    /// <remarks>
+    /// Walks the sections as header/extension units each optionally followed by a data
+    /// segment: the first section must be the primary header; every header and extension
+    /// must carry well-formed mandatory keywords (section 4.4.1); and each data segment's
+    /// size must match the geometry, unless
+    /// <see cref="FITSSerializationOptions.AllowDataSizeMismatch"/> is set.
+    /// </remarks>
+    /// <param name="options">The serialization options to apply.</param>
+    /// <exception cref="FITSException">
+    /// The file is empty, a section is out of place, a mandatory keyword is invalid, or a
+    /// data segment's size does not match its geometry.
+    /// </exception>
+    private void ValidateForSerialization( FITSSerializationOptions options )
+    {
+        if( this.SectionList.FirstOrDefault()?.SectionKind != FITSSection.Kind.Header )
+        {
+            throw FITSException.InvalidFileData( "The first section must be the primary header" );
+        }
+
+        int index = 0;
+
+        while( index < this.SectionList.Count )
+        {
+            FITSSection section = this.SectionList[ index ];
+
+            if( section.SectionKind != FITSSection.Kind.Header && section.SectionKind != FITSSection.Kind.Extension )
+            {
+                throw FITSException.InvalidFileData( $"Unexpected data segment at index { index.ToString( CultureInfo.InvariantCulture ) }: a data segment can only follow a header or extension that declares data (a NAXIS = 0 HDU has none)" );
+            }
+
+            IReadOnlyList< FITSProperty > properties = section.Properties;
+
+            ValidateMandatoryKeywords( properties, section.SectionKind == FITSSection.Kind.Extension );
+
+            long expected = ExpectedDataSize( properties );
+            index += 1;
+
+            if( expected <= 0 )
+            {
+                continue;
+            }
+
+            if( index >= this.SectionList.Count || this.SectionList[ index ].SectionKind != FITSSection.Kind.Data )
+            {
+                if( options.HasFlag( FITSSerializationOptions.AllowDataSizeMismatch ) == false )
+                {
+                    throw FITSException.InvalidFileData( $"Missing data segment: expected { expected.ToString( CultureInfo.InvariantCulture ) } bytes" );
+                }
+
+                continue;
+            }
+
+            long actual = this.SectionList[ index ].SerializedByteCount;
+            index += 1;
+
+            if( actual != expected && options.HasFlag( FITSSerializationOptions.AllowDataSizeMismatch ) == false )
+            {
+                throw FITSException.InvalidFileData( $"Data size mismatch: expected { expected.ToString( CultureInfo.InvariantCulture ) } bytes but found { actual.ToString( CultureInfo.InvariantCulture ) }" );
+            }
         }
     }
 

@@ -36,11 +36,11 @@ namespace DotNetFITSTests;
 /// Unit tests for <see cref="FITSFile"/>.
 /// </summary>
 /// <remarks>
-/// The read path - constructing a file from bytes or a file path, splitting the
-/// blocks into sections by geometry, and validating the mandatory keywords and
-/// data-segment sizes - is exercised here. Tests that also assert an exact
-/// round-trip through the serializer keep only their parse assertions for now;
-/// the serialize/write path (and its round-trips) is added with the file writer.
+/// Exercises both the read path - constructing a file from bytes or a file path,
+/// splitting the blocks into sections by geometry, and validating the mandatory
+/// keywords and data-segment sizes - and the write path: building files and
+/// extensions from scratch, editing HDUs, and validated serialization to bytes or
+/// disk, including the round-trips through the serializer.
 /// </remarks>
 public class FITSFileTests
 {
@@ -80,6 +80,26 @@ public class FITSFileTests
         foreach( string path in TestUtilities.TestFiles )
         {
             _ = new FITSFile( path, FITSParsingOptions.Lenient );
+        }
+    }
+
+    /// <summary>
+    /// A clean file serialized with the strict options reproduces its original
+    /// bytes exactly for every sample file: geometry-driven parsing assigns each
+    /// block to exactly one section in file order, so re-serializing must reproduce
+    /// the input.
+    /// </summary>
+    [ Fact ]
+    public void AllTestFilesRoundTrip()
+    {
+        Assert.NotEmpty( TestUtilities.TestFiles );
+
+        foreach( string path in TestUtilities.TestFiles )
+        {
+            byte[]   data = File.ReadAllBytes( path );
+            FITSFile file = new FITSFile( data, FITSParsingOptions.Lenient );
+
+            Assert.True( file.Data.Span.SequenceEqual( data ), $"Round-trip mismatch for { Path.GetFileName( path ) }" );
         }
     }
 
@@ -202,6 +222,24 @@ public class FITSFileTests
         {
             File.Delete( path );
         }
+    }
+
+    /// <summary>
+    /// A parsed file serialized to bytes and reparsed yields an identical
+    /// serialization and textual summary.
+    /// </summary>
+    [ Fact ]
+    public void Data()
+    {
+        string? path = TestUtilities.TestFiles.FirstOrDefault( candidate => Path.GetFileName( candidate ) == "FOSy19g0309t_c2f.fits" );
+
+        Assert.NotNull( path );
+
+        FITSFile file = new FITSFile( path, FITSParsingOptions.Lenient );
+        FITSFile copy = new FITSFile( file.Data, FITSParsingOptions.Lenient );
+
+        Assert.Equal( file.Data.ToArray(), copy.Data.ToArray() );
+        Assert.Equal( file.ToString(),     copy.ToString() );
     }
 
     /// <summary>
@@ -523,10 +561,10 @@ public class FITSFileTests
 
     /// <summary>
     /// A file whose header carries an orphaned <c>CONTINUE</c> parses under lenient
-    /// options, the record being retained.
+    /// options and round-trips byte-for-byte, the record's bytes being retained.
     /// </summary>
     [ Fact ]
-    public void OrphanedContinueFileParses()
+    public void OrphanedContinueFileRoundTrips()
     {
         ReadOnlyMemory< byte > block = TestUtilities.HeaderBlock(
             [
@@ -539,6 +577,7 @@ public class FITSFileTests
 
         Assert.NotNull( header );
         Assert.Contains( header.Properties, property => property.Name == "CONTINUE" );
+        Assert.Equal( block.ToArray(), file.Data.ToArray() );
     }
 
     /// <summary>
@@ -597,10 +636,12 @@ public class FITSFileTests
     public void NonAsciiDataSegmentParsesWithoutClassification()
     {
         ReadOnlyMemory< byte > header = TestUtilities.HeaderBlock( [ ( "SIMPLE", "T" ), ( "BITPIX", "8" ), ( "NAXIS", "1" ), ( "NAXIS1", "2880" ), ( "END", "" ) ] );
-        FITSFile               file   = new FITSFile( Combine( header, TestUtilities.DataBlock( 0xFF ) ), FITSParsingOptions.Strict );
+        ReadOnlyMemory< byte > bytes  = Combine( header, TestUtilities.DataBlock( 0xFF ) );
+        FITSFile               file   = new FITSFile( bytes, FITSParsingOptions.Strict );
 
         Assert.Equal( 2, file.Sections.Count );
         Assert.Equal( FITSSection.Kind.Data, file.Sections[ 1 ].SectionKind );
+        Assert.Equal( bytes.ToArray(), file.Data.ToArray() );
     }
 
     /// <summary>
@@ -612,11 +653,13 @@ public class FITSFileTests
     public void TrailingPaddingAfterEndIsNotData()
     {
         ReadOnlyMemory< byte > header = TestUtilities.StandardHeaderBlock( includeEndMarker: true, keywords: [] );
-        FITSFile               file   = new FITSFile( Combine( header, TestUtilities.DataBlock( 0x20 ) ), FITSParsingOptions.Strict );
+        ReadOnlyMemory< byte > bytes  = Combine( header, TestUtilities.DataBlock( 0x20 ) );
+        FITSFile               file   = new FITSFile( bytes, FITSParsingOptions.Strict );
 
         Assert.Single( file.Sections );
         Assert.All( file.Sections, section => Assert.NotEqual( FITSSection.Kind.Data, section.SectionKind ) );
         Assert.Empty( file.Extensions );
+        Assert.Equal( bytes.ToArray(), file.Data.ToArray() );
     }
 
     /// <summary>
@@ -646,7 +689,9 @@ public class FITSFileTests
         ReadOnlyMemory< byte > header = TestUtilities.HeaderBlock( [ ( "SIMPLE", "T" ), ( "BITPIX", "8" ), ( "NAXIS", "1" ), ( "NAXIS1", "2880" ), ( "END", "" ) ] );
         ReadOnlyMemory< byte > data1  = TestUtilities.HeaderBlock( [ "XTENSION= 'TABLE    '" ] );
         ReadOnlyMemory< byte > ext    = TestUtilities.HeaderBlock( [ ( "XTENSION", "'IMAGE   '" ), ( "BITPIX", "8" ), ( "NAXIS", "1" ), ( "NAXIS1", "2880" ), ( "PCOUNT", "0" ), ( "GCOUNT", "1" ), ( "END", "" ) ] );
-        FITSFile               file   = new FITSFile( Combine( header, data1, ext, TestUtilities.DataBlock( 0x00 ) ), FITSParsingOptions.Strict );
+        ReadOnlyMemory< byte > data2  = TestUtilities.DataBlock( 0x00 );
+        ReadOnlyMemory< byte > bytes  = Combine( header, data1, ext, data2 );
+        FITSFile               file   = new FITSFile( bytes, FITSParsingOptions.Strict );
 
         Assert.Equal( 4, file.Sections.Count );
         Assert.Equal( FITSSection.Kind.Header,    file.Sections[ 0 ].SectionKind );
@@ -654,6 +699,7 @@ public class FITSFileTests
         Assert.Equal( FITSSection.Kind.Extension, file.Sections[ 2 ].SectionKind );
         Assert.Equal( FITSSection.Kind.Data,      file.Sections[ 3 ].SectionKind );
         Assert.Single( file.Extensions );
+        Assert.Equal( bytes.ToArray(), file.Data.ToArray() );
     }
 
     /// <summary>
@@ -721,6 +767,8 @@ public class FITSFileTests
         FITSFile file = new FITSFile( data, FITSParsingOptions.Lenient );
 
         Assert.Single( file.Sections );
+        Assert.Equal( FITSFile.BlockSize * 2, file.Data.Length );
+        Assert.Equal( Combine( header, partial, new byte[ FITSFile.BlockSize - 100 ] ).ToArray(), file.Data.ToArray() );
     }
 
     /// <summary>
@@ -755,6 +803,7 @@ public class FITSFileTests
         Assert.Single( file.Sections );
         Assert.Equal( "FOO", file.Header?.Properties[ ^1 ].Name );
         Assert.Equal( 1L,    file.Header?.Properties[ ^1 ].Value.AsInteger );
+        Assert.Equal( block.ToArray(), file.Data.ToArray() );
     }
 
     /// <summary>
@@ -767,6 +816,405 @@ public class FITSFileTests
         ReadOnlyMemory< byte > header = TestUtilities.HeaderBlock( [ ( "SIMPLE", "T" ), ( "BITPIX", "8" ), ( "NAXIS", "1" ), ( "NAXIS1", "1000000000000000000" ), ( "END", "" ) ] );
 
         Assert.Throws< FITSException >( () => new FITSFile( header, FITSParsingOptions.Lenient ) );
+    }
+
+    /// <summary>
+    /// A clean file serialized with the lenient options reproduces its original
+    /// bytes exactly for every sample file.
+    /// </summary>
+    [ Fact ]
+    public void SerializedDataRoundTripsAllTestFiles()
+    {
+        Assert.NotEmpty( TestUtilities.TestFiles );
+
+        foreach( string path in TestUtilities.TestFiles )
+        {
+            byte[]   data = File.ReadAllBytes( path );
+            FITSFile file = new FITSFile( data, FITSParsingOptions.Lenient );
+
+            Assert.True( file.SerializedData( FITSSerializationOptions.Lenient ).Span.SequenceEqual( data ), $"Round-trip mismatch for { Path.GetFileName( path ) }" );
+        }
+    }
+
+    /// <summary>
+    /// A file written to disk and reread reproduces its original bytes, both on disk
+    /// and when reparsed.
+    /// </summary>
+    [ Fact ]
+    public void WriteThenRereadReproducesBytes()
+    {
+        ReadOnlyMemory< byte > bytes = TestUtilities.StandardHeaderBlock( includeEndMarker: true, keywords: [ ( "FOO", "42" ) ] );
+        FITSFile               file  = new FITSFile( bytes, FITSParsingOptions.Strict );
+        string                 path  = TempFitsPath();
+
+        try
+        {
+            file.Write( path, FITSSerializationOptions.Strict );
+
+            byte[]   reread   = File.ReadAllBytes( path );
+            FITSFile reparsed = new FITSFile( reread, FITSParsingOptions.Strict );
+
+            Assert.Equal( bytes.ToArray(), reread );
+            Assert.Equal( bytes.ToArray(), reparsed.Data.ToArray() );
+        }
+        finally
+        {
+            File.Delete( path );
+        }
+    }
+
+    /// <summary>
+    /// Strict serialization rejects a data-size mismatch that lenient serialization
+    /// tolerates.
+    /// </summary>
+    [ Fact ]
+    public void StrictSerializationRejectsDataSizeMismatch()
+    {
+        ReadOnlyMemory< byte > header = TestUtilities.HeaderBlock( [ ( "SIMPLE", "T" ), ( "BITPIX", "8" ), ( "NAXIS", "1" ), ( "NAXIS1", "5760" ), ( "END", "" ) ] );
+        FITSFile               file   = new FITSFile( Combine( header, TestUtilities.DataBlock( 0x00 ) ), FITSParsingOptions.Lenient );
+
+        Assert.Throws< FITSException >( () => file.SerializedData( FITSSerializationOptions.Strict ) );
+
+        _ = file.SerializedData( FITSSerializationOptions.Lenient );
+    }
+
+    /// <summary>
+    /// Writing to an unwritable location throws
+    /// <see cref="FITSErrorKind.CannotWriteFile"/>.
+    /// </summary>
+    [ Fact ]
+    public void WriteToUnwritableURLThrowsCannotWriteFile()
+    {
+        ReadOnlyMemory< byte > bytes = TestUtilities.StandardHeaderBlock( includeEndMarker: true, keywords: [] );
+        FITSFile               file  = new FITSFile( bytes, FITSParsingOptions.Strict );
+        string                 path  = $"/no/such/directory/{ Guid.NewGuid().ToString() }.fits";
+
+        FITSException exception = Assert.Throws< FITSException >( () => file.Write( path, FITSSerializationOptions.Strict ) );
+
+        Assert.Equal( FITSErrorKind.CannotWriteFile, exception.Kind );
+    }
+
+    /// <summary>
+    /// A 3x2 unsigned-byte image built from scratch serializes to a header block and
+    /// a data block and round-trips through a reparse.
+    /// </summary>
+    [ Fact ]
+    public void BuildsPrimaryHDUFromScratchAndRoundTrips()
+    {
+        byte[]                 pixels = [ 1, 2, 3, 4, 5, 6 ];
+        FITSFile               file   = new FITSFile( 8, [ 3, 2 ], pixels );
+        ReadOnlyMemory< byte > bytes  = file.SerializedData( FITSSerializationOptions.Strict );
+
+        Assert.Equal( FITSFile.BlockSize * 2, bytes.Length );
+
+        FITSFile     reparsed = new FITSFile( bytes, FITSParsingOptions.Strict );
+        FITSSection? header   = reparsed.Header;
+
+        Assert.NotNull( header );
+        Assert.Equal( 2, reparsed.Sections.Count );
+        Assert.Equal( FITSValue.Logical( true ), header[ "SIMPLE" ]?.Value );
+        Assert.Equal( 8L, header.Bitpix );
+        Assert.Equal( 2L, header.Naxis );
+        Assert.Equal( 3L, header.NaxisAt( 1 ) );
+        Assert.Equal( 2L, header.NaxisAt( 2 ) );
+
+        FITSSection? segment = reparsed.Sections.FirstOrDefault( section => section.SectionKind == FITSSection.Kind.Data );
+
+        Assert.NotNull( segment );
+        Assert.Equal( pixels, segment.Data.Slice( 0, 6 ).ToArray() );
+    }
+
+    /// <summary>
+    /// A NAXIS = 0 primary with no axes and no data serializes to a single header
+    /// block.
+    /// </summary>
+    [ Fact ]
+    public void BuildsHeadersOnlyPrimaryWithNoData()
+    {
+        FITSFile               file  = new FITSFile( 8, [] );
+        ReadOnlyMemory< byte > bytes = file.SerializedData( FITSSerializationOptions.Strict );
+
+        Assert.Equal( FITSFile.BlockSize, bytes.Length );
+
+        FITSFile reparsed = new FITSFile( bytes, FITSParsingOptions.Strict );
+
+        Assert.Single( reparsed.Sections );
+        Assert.Equal( 0L, reparsed.Header?.Naxis );
+    }
+
+    /// <summary>
+    /// Appending an extension adds its mandatory keywords and declares
+    /// <c>EXTEND = T</c> in the primary header.
+    /// </summary>
+    [ Fact ]
+    public void AppendsExtensionAndAutoAddsExtendKeyword()
+    {
+        FITSFile file = new FITSFile( 8, [ 2, 2 ], new byte[] { 1, 2, 3, 4 } );
+
+        file.AppendExtension( "IMAGE", 8, [ 2, 2 ], data: new byte[] { 5, 6, 7, 8 } );
+
+        Assert.Equal( FITSValue.Logical( true ), file.Header?[ "EXTEND" ]?.Value );
+
+        ReadOnlyMemory< byte > bytes    = file.SerializedData( FITSSerializationOptions.Strict );
+        FITSFile               reparsed = new FITSFile( bytes, FITSParsingOptions.Strict );
+
+        Assert.Single( reparsed.Extensions );
+
+        FITSSection extension = reparsed.Extensions[ 0 ];
+
+        Assert.Equal( FITSValue.Logical( true ),   reparsed.Header?[ "EXTEND" ]?.Value );
+        Assert.Equal( FITSValue.String( "IMAGE" ), extension[ "XTENSION" ]?.Value );
+        Assert.Equal( 8L, extension.Bitpix );
+        Assert.Equal( 2L, extension.Naxis );
+        Assert.Equal( FITSValue.Integer( 0 ), extension[ "PCOUNT" ]?.Value );
+        Assert.Equal( FITSValue.Integer( 1 ), extension[ "GCOUNT" ]?.Value );
+    }
+
+    /// <summary>
+    /// A from-scratch file written to disk and read back preserves its geometry and
+    /// data.
+    /// </summary>
+    [ Fact ]
+    public void WritesFromScratchFileToDiskAndReadsBack()
+    {
+        byte[]   pixels = [ 10, 20, 30, 40 ];
+        FITSFile file   = new FITSFile( 8, [ 2, 2 ], pixels );
+        string   path   = TempFitsPath();
+
+        try
+        {
+            file.Write( path, FITSSerializationOptions.Strict );
+
+            FITSFile     reread  = new FITSFile( path, FITSParsingOptions.Strict );
+            FITSSection? segment = reread.Sections.FirstOrDefault( section => section.SectionKind == FITSSection.Kind.Data );
+
+            Assert.NotNull( segment );
+            Assert.Equal( 2L, reread.Header?.Naxis );
+            Assert.Equal( pixels, segment.Data.Slice( 0, 4 ).ToArray() );
+        }
+        finally
+        {
+            File.Delete( path );
+        }
+    }
+
+    /// <summary>
+    /// From-scratch construction defers the data-size check to write: a data segment
+    /// too small for the geometry is rejected by strict serialization and tolerated
+    /// by lenient.
+    /// </summary>
+    [ Fact ]
+    public void FromScratchFileDefersDataSizeValidationToWrite()
+    {
+        FITSFile file = new FITSFile( 8, [ 5760 ], Filled( 0x00, 100 ) );
+
+        Assert.Throws< FITSException >( () => file.SerializedData( FITSSerializationOptions.Strict ) );
+
+        _ = file.SerializedData( FITSSerializationOptions.Lenient );
+    }
+
+    /// <summary>
+    /// A pathological primary <c>NAXIS</c> does not overflow-trap the <c>EXTEND</c>
+    /// insertion-index computation; the keyword is appended safely.
+    /// </summary>
+    [ Fact ]
+    public void AppendExtensionWithPathologicalNaxisDoesNotTrap()
+    {
+        FITSFile     file    = new FITSFile( 8, [ 2, 2 ], new byte[] { 1, 2, 3, 4 } );
+        FITSSection? primary = file.Header;
+
+        Assert.NotNull( primary );
+
+        primary.SetProperty( new FITSProperty( "NAXIS", long.MaxValue, FITSSerializationOptions.Strict ) );
+
+        file.AppendExtension( "IMAGE", 8, [ 2, 2 ], data: new byte[] { 5, 6, 7, 8 } );
+
+        Assert.Equal( FITSValue.Logical( true ), file.Header?[ "EXTEND" ]?.Value );
+    }
+
+    /// <summary>
+    /// A NAXIS = 0 primary carrying a data segment is rejected on write with a
+    /// message that names the zero-data geometry.
+    /// </summary>
+    [ Fact ]
+    public void NaxisZeroPrimaryWithDataIsRejectedWithClearMessage()
+    {
+        FITSFile file = new FITSFile( 8, [], new byte[] { 1, 2, 3, 4 } );
+
+        FITSException exception = Assert.Throws< FITSException >( () => file.SerializedData( FITSSerializationOptions.Strict ) );
+
+        Assert.Contains( "data segment", exception.Message );
+        Assert.Contains( "NAXIS",        exception.Message );
+    }
+
+    /// <summary>
+    /// Editing a keyword in one section re-renders only that section; untouched
+    /// sections are re-emitted from their retained bytes, byte-for-byte.
+    /// </summary>
+    [ Fact ]
+    public void EditingOnlyOneSectionKeepsOthersByteForByte()
+    {
+        FITSFile builder = new FITSFile( 8, [ 2, 2 ], new byte[] { 1, 2, 3, 4 } );
+
+        builder.AppendExtension( "IMAGE", 8, [ 2, 2 ], data: new byte[] { 5, 6, 7, 8 } );
+
+        ReadOnlyMemory< byte > original = builder.SerializedData( FITSSerializationOptions.Strict );
+        FITSFile               file     = new FITSFile( original, FITSParsingOptions.Strict );
+        byte[]                 before   = ExtensionData( file );
+
+        file.Header?.SetProperty( new FITSProperty( "OBJECT", "M42", FITSSerializationOptions.Strict ) );
+
+        ReadOnlyMemory< byte > rewritten = file.SerializedData( FITSSerializationOptions.Strict );
+        FITSFile               reparsed  = new FITSFile( rewritten, FITSParsingOptions.Strict );
+
+        Assert.Equal( FITSValue.String( "M42" ), reparsed.Header?[ "OBJECT" ]?.Value );
+        Assert.Equal( before, ExtensionData( reparsed ) );
+    }
+
+    /// <summary>
+    /// Replacing a parsed data segment's payload re-renders only that segment; the
+    /// header stays byte-for-byte identical.
+    /// </summary>
+    [ Fact ]
+    public void ReplacingDataPayloadOfParsedSectionRerendersOnlyThatSegment()
+    {
+        FITSFile     builder = new FITSFile( 8, [ 2, 2 ], new byte[] { 1, 2, 3, 4 } );
+        FITSFile     file    = new FITSFile( builder.SerializedData( FITSSerializationOptions.Strict ), FITSParsingOptions.Strict );
+        FITSSection? header  = file.Header;
+
+        Assert.NotNull( header );
+
+        byte[]       headerBefore = header.Data.ToArray();
+        FITSSection? segment      = file.Sections.FirstOrDefault( section => section.SectionKind == FITSSection.Kind.Data );
+
+        Assert.NotNull( segment );
+
+        segment.SetDataPayload( new byte[] { 9, 8, 7, 6 } );
+
+        FITSFile reparsed = new FITSFile( file.SerializedData( FITSSerializationOptions.Strict ), FITSParsingOptions.Strict );
+
+        Assert.Equal( headerBefore, reparsed.Header?.Data.ToArray() );
+        Assert.Equal( new byte[] { 9, 8, 7, 6 }, reparsed.Sections[ ^1 ].Data.Slice( 0, 4 ).ToArray() );
+    }
+
+    /// <summary>
+    /// Removing an extension drops its header and data segment together, and an
+    /// out-of-range index is rejected.
+    /// </summary>
+    [ Fact ]
+    public void RemoveExtensionDropsHeaderAndData()
+    {
+        FITSFile file = new FITSFile( 8, [] );
+
+        file.AppendExtension( "IMAGE", 8, [ 2, 2 ], data: new byte[] { 1, 2, 3, 4 } );
+        file.AppendExtension( "IMAGE", 8, [ 3 ],    data: new byte[] { 7, 8, 9 } );
+
+        Assert.Equal( 2, file.Extensions.Count );
+
+        file.RemoveExtension( 0 );
+
+        Assert.Single( file.Extensions );
+        Assert.Throws< FITSException >( () => file.RemoveExtension( 5 ) );
+
+        FITSFile reparsed = new FITSFile( file.SerializedData( FITSSerializationOptions.Strict ), FITSParsingOptions.Strict );
+
+        Assert.Single( reparsed.Extensions );
+        Assert.Equal( 1L, reparsed.Extensions[ 0 ].Naxis );
+    }
+
+    /// <summary>
+    /// Moving an extension reorders the HDUs, and an out-of-range index is rejected.
+    /// </summary>
+    [ Fact ]
+    public void MoveExtensionReordersHDUs()
+    {
+        FITSFile file = new FITSFile( 8, [] );
+
+        file.AppendExtension( "IMAGE", 8, [ 2, 2 ], data: new byte[] { 1, 2, 3, 4 } );
+        file.AppendExtension( "IMAGE", 8, [ 3 ],    data: new byte[] { 7, 8, 9 } );
+
+        file.MoveExtension( 1, 0 );
+
+        Assert.Throws< FITSException >( () => file.MoveExtension( 0, 9 ) );
+
+        FITSFile reparsed = new FITSFile( file.SerializedData( FITSSerializationOptions.Strict ), FITSParsingOptions.Strict );
+
+        Assert.Equal( 2, reparsed.Extensions.Count );
+        Assert.Equal( 1L, reparsed.Extensions[ 0 ].Naxis );
+        Assert.Equal( 2L, reparsed.Extensions[ 1 ].Naxis );
+    }
+
+    /// <summary>
+    /// Re-shaping the primary updates its geometry keywords and data segment
+    /// together.
+    /// </summary>
+    [ Fact ]
+    public void SetPrimaryDataUpdatesGeometryAndPayloadTogether()
+    {
+        FITSFile builder = new FITSFile( 8, [ 2, 2 ], new byte[] { 1, 2, 3, 4 } );
+        FITSFile file    = new FITSFile( builder.SerializedData( FITSSerializationOptions.Strict ), FITSParsingOptions.Strict );
+
+        file.SetPrimaryData( 16, [ 3, 3 ], Filled( 0xAB, 18 ) );
+
+        FITSFile     reparsed = new FITSFile( file.SerializedData( FITSSerializationOptions.Strict ), FITSParsingOptions.Strict );
+        FITSSection? header   = reparsed.Header;
+
+        Assert.NotNull( header );
+        Assert.Equal( 16L, header.Bitpix );
+        Assert.Equal( 2L,  header.Naxis );
+        Assert.Equal( 3L,  header.NaxisAt( 1 ) );
+        Assert.Equal( 3L,  header.NaxisAt( 2 ) );
+
+        FITSSection? segment = reparsed.Sections.FirstOrDefault( section => section.SectionKind == FITSSection.Kind.Data );
+
+        Assert.NotNull( segment );
+        Assert.Equal( Filled( 0xAB, 18 ), segment.Data.Slice( 0, 18 ).ToArray() );
+    }
+
+    /// <summary>
+    /// Re-shaping an extension updates its geometry and preserves its
+    /// <c>PCOUNT</c>/<c>GCOUNT</c>.
+    /// </summary>
+    [ Fact ]
+    public void SetExtensionDataUpdatesGeometryAndPreservesPcountGcount()
+    {
+        FITSFile builder = new FITSFile( 8, [] );
+
+        builder.AppendExtension( "IMAGE", 8, [ 2, 2 ], data: new byte[] { 1, 2, 3, 4 } );
+
+        FITSFile file = new FITSFile( builder.SerializedData( FITSSerializationOptions.Strict ), FITSParsingOptions.Strict );
+
+        file.SetExtensionData( 0, 16, [ 3 ], Filled( 0xCD, 6 ) );
+
+        FITSFile     reparsed  = new FITSFile( file.SerializedData( FITSSerializationOptions.Strict ), FITSParsingOptions.Strict );
+        FITSSection? extension = reparsed.Extensions.FirstOrDefault();
+
+        Assert.NotNull( extension );
+        Assert.Equal( 16L, extension.Bitpix );
+        Assert.Equal( 1L,  extension.Naxis );
+        Assert.Equal( 3L,  extension.NaxisAt( 1 ) );
+        Assert.Equal( FITSValue.Integer( 0 ), extension[ "PCOUNT" ]?.Value );
+        Assert.Equal( FITSValue.Integer( 1 ), extension[ "GCOUNT" ]?.Value );
+
+        FITSSection segment = reparsed.Sections[ ^1 ];
+
+        Assert.Equal( FITSSection.Kind.Data, segment.SectionKind );
+        Assert.Equal( Filled( 0xCD, 6 ), segment.Data.Slice( 0, 6 ).ToArray() );
+    }
+
+    /// <summary>
+    /// A pathological extension index throws rather than overflow-trapping the
+    /// bounds check.
+    /// </summary>
+    [ Fact ]
+    public void ExtensionEditsWithPathologicalIndexDoNotTrap()
+    {
+        FITSFile file = new FITSFile( 8, [] );
+
+        file.AppendExtension( "IMAGE", 8, [ 2, 2 ], data: new byte[] { 1, 2, 3, 4 } );
+
+        Assert.Throws< FITSException >( () => file.RemoveExtension( int.MaxValue ) );
+        Assert.Throws< FITSException >( () => file.SetExtensionData( int.MaxValue, 8, [ 1 ], new byte[] { 0 } ) );
     }
 
     /// <summary>
@@ -819,5 +1267,36 @@ public class FITSFileTests
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// Builds a byte array filled with a repeated value.
+    /// </summary>
+    /// <param name="value">The byte to repeat.</param>
+    /// <param name="count">The number of bytes.</param>
+    /// <returns>
+    /// A <paramref name="count"/>-byte array of <paramref name="value"/> bytes.
+    /// </returns>
+    private static byte[] Filled( byte value, int count )
+    {
+        byte[] bytes = new byte[ count ];
+
+        Array.Fill( bytes, value );
+
+        return bytes;
+    }
+
+    /// <summary>
+    /// The serialized bytes of a file's first extension section.
+    /// </summary>
+    /// <param name="file">The file whose first extension section to serialize.</param>
+    /// <returns>The first extension section's serialized bytes.</returns>
+    private static byte[] ExtensionData( FITSFile file )
+    {
+        FITSSection? extension = file.Extensions.FirstOrDefault();
+
+        Assert.NotNull( extension );
+
+        return extension.Data.ToArray();
     }
 }
