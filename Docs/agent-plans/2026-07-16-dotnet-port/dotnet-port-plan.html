@@ -320,7 +320,7 @@
         <div class="phase">Phase 2 &middot; Value &amp; block layer</div>
         <ol>
             <li><a href="#m4"><span class="num">M4</span> FITSValue</a> <span class="capsule status-completed">Completed</span></li>
-            <li><a href="#m5"><span class="num">M5</span> FITSBlock</a> <span class="capsule status-not-started">Not started</span></li>
+            <li><a href="#m5"><span class="num">M5</span> FITSBlock</a> <span class="capsule status-completed">Completed</span></li>
         </ol>
 
         <div class="phase">Phase 3 &middot; Property layer</div>
@@ -839,7 +839,7 @@
     <div class="milestone" id="m5">
         <div class="m-head">
             <h3>M5 &middot; FITSBlock</h3>
-            <span class="capsule status-not-started">Not started</span>
+            <span class="capsule status-completed">Completed</span>
         </div>
         <div class="field">
             <div class="label">Goal</div>
@@ -855,11 +855,86 @@
                 <li class="task">Port the <code>FITSBlock</code> tests.</li>
             </ul>
         </div>
-        <div class="field"><div class="label">Status</div><span class="capsule status-not-started">Not started</span></div>
-        <div class="field"><div class="label">Completed</div><span class="placeholder">&mdash;</span></div>
-        <div class="field"><div class="label">Implementation notes</div><p class="placeholder">To be filled in as work progresses.</p></div>
-        <div class="field"><div class="label">Automated review</div><p class="placeholder">To be filled in by the automated review loop.</p></div>
-        <div class="field"><div class="label">Review comments</div><p class="placeholder">Awaiting human review.</p></div>
+        <div class="field"><div class="label">Status</div><span class="capsule status-completed">Completed</span></div>
+        <div class="field"><div class="label">Completed</div>2026-07-18</div>
+        <div class="field">
+            <div class="label">Implementation notes</div>
+            <p>Implemented with TDD &mdash; the 12-test suite written first and watched fail at compile level (the
+                type did not yet exist), then made to pass on the first implementation pass. Green in Debug <em>and</em>
+                Release (0 warnings under warnings-as-errors, nullable and overflow checks active); the suite grew from
+                59 to <strong>71 tests</strong> (12 added).</p>
+            <ul>
+                <li><strong>FITSBlock (sealed class).</strong> Wraps a <code>public ReadOnlyMemory&lt;byte&gt; Data</code>
+                    (get-only) plus the private <code>FITSParsingOptions Options</code>. The constructor validates the
+                    block is exactly <code>FITSFile.BlockSize</code> (2880) bytes, throwing
+                    <code>FITSException.InvalidBlockSize</code> <em>before</em> any byte-level scan. <code>sealed</code>
+                    because the block is not designed as a hierarchy (matching the <code>FITSException</code> precedent);
+                    <code>FITSFile</code> stays open for the later file-layer milestones.</li>
+                <li><strong>Structural flags.</strong> <code>ContainsOnlyASCII</code>
+                    (<code>Data.ContainsOnlyASCII()</code>), <code>HasExtensionMarker</code>
+                    (<code>ContainsOnlyASCII &amp;&amp; Data.StartsWith( "XTENSION="u8 )</code> &mdash; a zero-copy
+                    UTF-8 byte-literal prefix, short-circuiting on a non-ASCII block), and <code>HasEndMarker</code>
+                    (scans the 36 eighty-byte records via <code>Chunked</code>; the first record right-trimming to
+                    exactly <code>"END"</code> wins, via <code>.Any</code> first-match). The padding predicate is
+                    <code>FITSCharacterSet.IsPadding</code> (space only), or <code>IsPaddingWithNul</code> when
+                    <code>AllowNulPadding</code> is set &mdash; so <code>END\0&hellip;</code> is recognized only under
+                    that option. Record decoding uses <code>Encoding.ASCII.GetString</code>, exact because the ASCII
+                    guard already holds; a custom keyword such as <code>ENDED</code>/<code>ENDTIME</code> is rejected
+                    (exact match, not prefix).</li>
+                <li><strong>Lazy caching.</strong> Each flag is computed once and cached on first read via
+                    <code>??=</code> over a private nullable <code>Cached&hellip;</code> backing store, with the public
+                    flag returning the non-null cache. The class documents the inherited not-thread-safe caveat
+                    (read mutates the cache, so concurrent reads race). <strong>Decision to confirm:</strong> the plan's
+                    porting-hazard note describes the backing store as &ldquo;nullable backing <em>fields</em>,&rdquo;
+                    but the cross-cutting convention &ldquo;prefer get/set properties over plain fields, even private
+                    ones&rdquo; governed, so the caches are private <code>{ get; set; }</code> auto-properties rather
+                    than fields. Trivial to switch to fields if the maintainer prefers the literal wording.</li>
+                <li><strong><code>Chunked</code> cannot throw here.</strong> The 2880-byte size enforced at construction
+                    is an exact multiple of the 80-byte card size, so the record split never fails;
+                    <code>ComputeHasEndMarker</code> relies on that construction invariant (documented) instead of a
+                    defensive guard, which would be dead code.</li>
+                <li><strong>ToString.</strong> A structural summary
+                    <code>FITSBlock { ContainsOnlyASCII: &hellip;, HasEndMarker: &hellip;, HasExtensionMarker: &hellip; }</code>;
+                    only booleans are interpolated, so it is culture-invariant (no <code>CA1305</code> risk). The
+                    <code>description</code> test asserts the summary is non-empty and differs from the qualified
+                    type name (the C# analog of the original <code>_typeName</code> check).</li>
+                <li><strong>Layout.</strong> <code>DotNetFITS/Model/FITSBlock.cs</code> and
+                    <code>DotNetFITSTests/Model/FITSBlockTests.cs</code>; one public type per file, flat
+                    <code>namespace DotNetFITS;</code> / <code>DotNetFITSTests;</code>. The SDK-style projects glob their
+                    sources, so no <code>.csproj</code> change was needed.</li>
+            </ul>
+        </div>
+        <div class="field">
+            <div class="label">Automated review</div>
+            <p>One independent fresh-context round; converged immediately (no Critical/High/Medium findings). The
+                reviewer re-verified both build configurations and the 71-test suite, confirmed there is no regression
+                surface (<code>FITSBlock</code> has no external callers yet and the shared helpers are unmodified), and
+                traced full behavioral fidelity: block-size validation ahead of any scan, the ASCII guard (NUL counts
+                as ASCII), <code>XTENSION=</code> prefix matching (including the missing-<code>=</code>, leading-space
+                and later-record cases), <code>END</code> trimming (first-match and exact-not-prefix), the NUL-padding
+                option, the lazy caching, the unreachable <code>Chunked</code> failure path, and the <code>ToString</code>
+                field order.</p>
+            <ul>
+                <li><em>Shared-buffer vs value-type semantics</em> &mdash; Info &mdash; Deferred: unlike a copy-on-write
+                    value type, <code>ReadOnlyMemory&lt;byte&gt;</code> is a zero-copy view, so mutating the source
+                    buffer after construction would be reflected and, with the lazy cache, could yield stale flags. Not
+                    a milestone defect &mdash; the zero-copy model is the library-wide data type established in earlier
+                    milestones, the parser slices an immutable buffer and never mutates it, and the read-mutates-cache
+                    hazard is already documented. Reviewer recommended no change.</li>
+                <li><em>Per-record string allocation in the <code>END</code> scan</em> &mdash; Info &mdash; Deferred:
+                    the scan allocates up to ~36 record strings worst case and short-circuits once <code>END</code> is
+                    found; negligible for a block scanner. A byte-level scan would be zero-allocation but less clear.
+                    Reviewer recommended no change.</li>
+            </ul>
+        </div>
+        <div class="field">
+            <div class="label">Review comments</div>
+            <ol>
+                <li><strong>Lazy-cache backing store.</strong> Approved the milestone. Confirmed the caches should be
+                    get/set properties rather than fields &mdash; properties are preferable to fields for API
+                    evolution.</li>
+            </ol>
+        </div>
     </div>
 
     <div class="phase-banner">Phase 3 &middot; Property layer</div>
