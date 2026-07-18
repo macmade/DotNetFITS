@@ -341,4 +341,54 @@ public class FITSValueTests
     {
         Assert.Equal( "0xFF", FITSValue.Unknown( "0xFF" ).Serialized() );
     }
+
+    /// <summary>
+    /// Parsing the rendered literal of every value case reproduces an equal value
+    /// (parse &rarr; render &rarr; parse round-trip).
+    /// </summary>
+    [ Fact ]
+    public void ValueRoundTrips()
+    {
+        FITSValue[] values =
+        [
+            FITSValue.Logical( true ),
+            FITSValue.Logical( false ),
+            FITSValue.Integer( 42 ),
+            FITSValue.Integer( -7 ),
+            FITSValue.Integer( 0 ),
+            FITSValue.Float( 3.14 ),
+            FITSValue.Float( -0.5 ),
+            FITSValue.Float( 2.0 ),
+            FITSValue.Float( 1.5e-10 ),
+            FITSValue.String( "M42" ),
+            FITSValue.String( "O'HARA" ),
+            FITSValue.String( "" ),
+            FITSValue.String( " " ),
+            FITSValue.Undefined,
+            FITSValue.Unknown( "0xFF" ),
+        ];
+
+        foreach( FITSValue value in values )
+        {
+            string    rendered = value.Serialized();
+            FITSValue reparsed = ParseValue( rendered );
+
+            Assert.Equal( value, reparsed );
+        }
+    }
+
+    /// <summary>
+    /// Parses a value literal by embedding it in a minimal keyword record and
+    /// reading it back through <see cref="FITSProperty"/>.
+    /// </summary>
+    /// <param name="literal">
+    /// The value literal, as produced by <see cref="FITSValue.Serialized"/>.
+    /// </param>
+    /// <returns>The parsed value.</returns>
+    private static FITSValue ParseValue( string literal )
+    {
+        string card = $"TEST    = {literal}".PaddedOrTruncated( FITSFile.CardSize );
+
+        return new FITSProperty( card, FITSParsingOptions.Strict ).Value;
+    }
 }

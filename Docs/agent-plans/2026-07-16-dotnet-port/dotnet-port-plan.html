@@ -325,7 +325,7 @@
 
         <div class="phase">Phase 3 &middot; Property layer</div>
         <ol>
-            <li><a href="#m6"><span class="num">M6</span> FITSProperty &mdash; model, construction &amp; parsing</a> <span class="capsule status-not-started">Not started</span></li>
+            <li><a href="#m6"><span class="num">M6</span> FITSProperty &mdash; model, construction &amp; parsing</a> <span class="capsule status-completed">Completed</span></li>
             <li><a href="#m7"><span class="num">M7</span> FITSProperty &mdash; serialization</a> <span class="capsule status-not-started">Not started</span></li>
         </ol>
 
@@ -943,7 +943,7 @@
     <div class="milestone" id="m6">
         <div class="m-head">
             <h3>M6 &middot; FITSProperty &mdash; model, construction &amp; parsing</h3>
-            <span class="capsule status-not-started">Not started</span>
+            <span class="capsule status-completed">Completed</span>
         </div>
         <div class="field">
             <div class="label">Goal</div>
@@ -962,11 +962,101 @@
                 <li class="task">Port the construction / parsing / merge portions of the <code>FITSProperty</code> tests.</li>
             </ul>
         </div>
-        <div class="field"><div class="label">Status</div><span class="capsule status-not-started">Not started</span></div>
-        <div class="field"><div class="label">Completed</div><span class="placeholder">&mdash;</span></div>
-        <div class="field"><div class="label">Implementation notes</div><p class="placeholder">To be filled in as work progresses.</p></div>
-        <div class="field"><div class="label">Automated review</div><p class="placeholder">To be filled in by the automated review loop.</p></div>
-        <div class="field"><div class="label">Review comments</div><p class="placeholder">Awaiting human review.</p></div>
+        <div class="field"><div class="label">Status</div><span class="capsule status-completed">Completed</span></div>
+        <div class="field"><div class="label">Completed</div>2026-07-18</div>
+        <div class="field">
+            <div class="label">Implementation notes</div>
+            <p>Implemented with TDD &mdash; the test suite written first and watched fail at compile level, then made to
+                pass. Green in Debug <em>and</em> Release (0 warnings under warnings-as-errors); the suite grew from 71 to
+                <strong>124 tests</strong> (53 added: 52 <code>FITSProperty</code> tests + the deferred
+                <code>FITSValue</code> round-trip).</p>
+            <ul>
+                <li><strong>FITSProperty (sealed partial class).</strong> The header-record model plus its full read
+                    path. <code>Name</code> is get / private-set; <code>Value</code> and <code>Comment</code> are settable
+                    with dirty-tracking; a plain (non-weak) <code>Section</code> back-reference. Backing stores are
+                    private <code>{ get; set; }</code> auto-properties (per the properties-over-fields convention).
+                    <code>partial</code> to host the source-generated regexes.</li>
+                <li><strong>Construction.</strong> From raw bytes (ASCII-guarded decode before
+                    <code>Encoding.ASCII.GetString</code>, reproducing the fail-on-non-ASCII behavior), from an
+                    80-character card, from a raw value field (no card-length limit), and from a typed model
+                    (<code>FITSValue</code> plus the <code>logical</code>/<code>integer</code>/<code>float</code>/<code>string</code>
+                    conveniences). <strong>Constructor param reorder:</strong> C# forbids an optional parameter before a
+                    required one, so the Swift <code>(&hellip;, comment, options)</code> shape became
+                    <code>(&hellip;, options, string? comment = null)</code>; the two option enums
+                    (<code>FITSParsingOptions</code> vs <code>FITSSerializationOptions</code>) disambiguate the raw-value
+                    initializer from the typed/model ones.</li>
+                <li><strong>Parsing.</strong> <code>ParseName</code> (left-justification, NUL-aware padding, keyword
+                    charset), <code>ParseCommentOnly</code>, <code>ParsedComment</code> (one dropped delimiter space),
+                    <code>ParseValueAndComment</code> (with an extracted <code>ParseIndicatedValueAndComment</code> helper
+                    for the <code>=</code> indicator, keeping nesting shallow), <code>ParseStringValueAndComment</code>
+                    (doubled-quote unescaping, the single-significant-space rule, strict/lenient trailing-quote-junk), and
+                    <code>ParseNonStringValue</code> (logical &rarr; integer &rarr; float classification;
+                    <code>Int64</code>/<code>Double</code> overflow &rarr; <code>Unknown</code>).</li>
+                <li><strong>Regexes.</strong> The integer / floating-point / lowercase-exponent grammars use
+                    <code>[GeneratedRegex]</code> (source-generated, compiled once), so classification is non-throwing
+                    (the Swift regex-build <code>throws</code> is dropped). Float parsing uses
+                    <code>double.TryParse( NumberStyles.Float, InvariantCulture )</code>, empirically probed against every
+                    FITS float form (<code>42.</code>, <code>.42</code>, <code>42.E&plusmn;2</code>); an overflowing
+                    literal parses to an infinity and is caught by the <code>double.IsFinite</code> guard &rarr;
+                    <code>Unknown</code>.</li>
+                <li><strong>Merge &amp; keyword.</strong> <code>Merge</code> (HISTORY/COMMENT append, CONTINUE join
+                    requiring the trailing <code>&amp;</code> flag) and <code>MergedComment</code> (via
+                    <code>OfType&lt;string&gt;()</code>, the <code>compactMap</code> analog).
+                    <code>NormalizedKeyword</code> coerces with <code>ToUpperInvariant</code> (the CA1311-mandated choice)
+                    and rejects over-length names.</li>
+                <li><strong>ToString.</strong> A debug summary rendering kind, value and comment; a logical renders as
+                    C#'s <code>True</code>/<code>False</code> (an accepted runtime-formatting difference for a
+                    non-round-tripping string, pinned by the ported test), and the <code>Unknown</code> literal is
+                    obtained via <code>FITSValue.Serialized()</code>. It never throws (even for a non-finite float).</li>
+                <li><strong>Dirty-tracking.</strong> The <code>Value</code>/<code>Comment</code> setters mark the owning
+                    section only on a real change; every constructor bypasses them by assigning the backing store
+                    directly (matching the no-observer-during-init semantics).</li>
+                <li><strong>FITSSection stub.</strong> Created per the maintainer's decision as a minimal type (the
+                    <code>NeedsSerialization</code> flag + <code>internal MarkNeedsSerialization()</code>), completed in
+                    the section milestone, so the property's back-reference and hooks compile now.</li>
+                <li><strong>Deferred round-trip.</strong> The M4-deferred <code>valueRoundTrips</code> test was added to
+                    the <code>FITSValue</code> suite (it parses each rendered literal back through
+                    <code>FITSProperty</code>); the change is purely additive.</li>
+            </ul>
+            <p><strong>Review follow-up (applied).</strong> After the maintainer's review: collapsed the empty
+                delegating-constructor bodies to <code>{}</code> on a single line, and removed the <code>@</code>-escaped
+                keyword identifiers &mdash; the <code>float</code>/<code>string</code> convenience-constructor parameters
+                (and the matching test locals) were renamed to <code>floatingPoint</code> and <code>text</code>.
+                Re-verified green (124 tests) in Debug and Release.</p>
+        </div>
+        <div class="field">
+            <div class="label">Automated review</div>
+            <p>One independent fresh-context round; converged immediately (no Critical/High/Medium findings). The
+                reviewer verified behavioral fidelity method-by-method against the original, a clean build under the
+                strict analyzers and doc-generation, and the full suite; and confirmed the value classification and
+                overflow-to-unknown rules, the float grammar and culture-invariance, the string parser, the <code>=</code>
+                indicator handling, the CONTINUE/merge logic, name/comment parsing, the ASCII decode guard, the
+                constructor overload resolution, and no regression (the <code>FITSValueTests</code> change is purely
+                additive).</p>
+            <ul>
+                <li><em>Dirty-tracking had no test coverage</em> &mdash; Low &mdash; <strong>Fixed</strong>: the setters'
+                    only-dirty-on-real-change behavior and the construction bypass were correct but untested; added
+                    <code>EditingMarksTheOwningSectionForReserialization</code> (construction does not mark, an equal
+                    reassignment does not mark, a real edit does). Suite is now 124.</li>
+                <li><em><code>Merge</code> mutates through the public setters, so it participates in dirty-tracking</em>
+                    &mdash; Info &mdash; Deferred: a faithful port (inert in M6 since no section is attached yet);
+                    re-confirm the intended semantics when the section layer uses <code>Merge</code> during
+                    finalization.</li>
+                <li><em>UTF-16 <code>.Length</code>/<code>ToUpperInvariant</code> vs grapheme <code>.count</code>/<code>uppercased()</code></em>
+                    &mdash; Info &mdash; Deferred: diverges only on input both sides reject anyway (valid FITS records and
+                    keywords are ASCII); <code>ToUpperInvariant</code> is the analyzer-mandated correct choice for .NET.</li>
+            </ul>
+        </div>
+        <div class="field">
+            <div class="label">Review comments</div>
+            <ol>
+                <li><strong>Empty bodies.</strong> Write an empty constructor body as <code>{}</code> on a single line,
+                    not spread across two lines (as established earlier in the port).</li>
+                <li><strong>No <code>@</code>-escaped identifiers.</strong> Do not use <code>@</code>-prefixed keyword
+                    names such as <code>@float</code>/<code>@string</code> for parameters &mdash; they are ugly. Rename
+                    them to plain non-keyword names.</li>
+            </ol>
+        </div>
     </div>
 
     <!-- M7 -->
