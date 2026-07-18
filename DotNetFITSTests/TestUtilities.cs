@@ -37,7 +37,7 @@ namespace DotNetFITSTests;
 /// with the self-tests that verify those helpers.
 /// </summary>
 /// <remarks>
-/// Blocks are produced as <see cref="ReadOnlyMemory{Byte}"/> - the model's data
+/// Blocks are produced as <see cref="ReadOnlyMemory{ Byte }"/> - the model's data
 /// type - so they feed the block, section and file layers directly.
 /// </remarks>
 public class TestUtilities
@@ -53,7 +53,7 @@ public class TestUtilities
     /// runs from its own checkout, so the path stays valid at run time. Returned
     /// sorted by file name.
     /// </remarks>
-    public static IReadOnlyList<string> TestFiles => ResolveTestFiles();
+    public static IReadOnlyList< string > TestFiles => ResolveTestFiles();
 
     /// <summary>
     /// Resolves <see cref="TestFiles"/> relative to this source file's location.
@@ -63,7 +63,7 @@ public class TestUtilities
     /// <see cref="CallerFilePathAttribute"/>; it is not passed explicitly.
     /// </param>
     /// <returns>The sample files, sorted by file name; empty when none are found.</returns>
-    private static IReadOnlyList<string> ResolveTestFiles( [ CallerFilePath ] string sourceFilePath = "" )
+    private static IReadOnlyList< string > ResolveTestFiles( [ CallerFilePath ] string sourceFilePath = "" )
     {
         string? testsDirectory = Path.GetDirectoryName( sourceFilePath );
         string? repositoryRoot = testsDirectory is null ? null : Path.GetDirectoryName( testsDirectory );
@@ -93,7 +93,7 @@ public class TestUtilities
     /// <returns>
     /// A <see cref="FITSFile.BlockSize"/>-byte block of <paramref name="fill"/> bytes.
     /// </returns>
-    public static ReadOnlyMemory<byte> DataBlock( byte fill )
+    public static ReadOnlyMemory< byte > DataBlock( byte fill )
     {
         byte[] block = new byte[ FITSFile.BlockSize ];
 
@@ -116,25 +116,28 @@ public class TestUtilities
     /// A keyword name exceeds <see cref="FITSFile.KeywordLength"/> characters, or
     /// the block overflows.
     /// </exception>
-    public static ReadOnlyMemory<byte> HeaderBlock( IReadOnlyList<( string Name, string Value )> keywords )
+    public static ReadOnlyMemory< byte > HeaderBlock( IReadOnlyList< ( string Name, string Value ) > keywords )
     {
-        IEnumerable<string> fields = keywords.Select( keyword =>
-        {
-            if( keyword.Name.Length > FITSFile.KeywordLength )
+        IEnumerable< string > fields = keywords.Select
+        (
+            keyword =>
             {
-                throw TestError.Invalid( "Keyword name is too long" );
+                if( keyword.Name.Length > FITSFile.KeywordLength )
+                {
+                    throw TestError.Invalid( "Keyword name is too long" );
+                }
+
+                string name = keyword.Name.PaddedOrTruncated( FITSFile.KeywordLength );
+
+                return keyword.Name switch
+                {
+                    "END"                  => name,
+                    "HISTORY" or "COMMENT" => name + keyword.Value,
+                    "CONTINUE"             => name + "  " + keyword.Value,
+                    _                      => name + "= " + keyword.Value,
+                };
             }
-
-            string name = keyword.Name.PaddedOrTruncated( FITSFile.KeywordLength );
-
-            return keyword.Name switch
-            {
-                "END"                  => name,
-                "HISTORY" or "COMMENT" => name + keyword.Value,
-                "CONTINUE"             => name + "  " + keyword.Value,
-                _                      => name + "= " + keyword.Value,
-            };
-        } );
+        );
 
         return HeaderBlock( fields.ToList() );
     }
@@ -152,17 +155,23 @@ public class TestUtilities
     /// A field exceeds <see cref="FITSFile.CardSize"/> characters, the records
     /// overflow a block, or the text is not ASCII.
     /// </exception>
-    public static ReadOnlyMemory<byte> HeaderBlock( IReadOnlyList<string> fields )
+    public static ReadOnlyMemory< byte > HeaderBlock( IReadOnlyList< string > fields )
     {
-        string text = string.Concat( fields.Select( field =>
-        {
-            if( field.Length > FITSFile.CardSize )
-            {
-                throw TestError.Invalid( "Keyword line is too long" );
-            }
+        string text = string.Concat
+        (
+            fields.Select
+            (
+                field =>
+                {
+                    if( field.Length > FITSFile.CardSize )
+                    {
+                        throw TestError.Invalid( "Keyword line is too long" );
+                    }
 
-            return field.PaddedOrTruncated( FITSFile.CardSize );
-        } ) );
+                    return field.PaddedOrTruncated( FITSFile.CardSize );
+                }
+            )
+        );
 
         if( text.Length > FITSFile.BlockSize )
         {
@@ -189,9 +198,9 @@ public class TestUtilities
     /// <param name="includeEndMarker">Whether to append the <c>END</c> record.</param>
     /// <param name="keywords">Additional keyword name/value pairs to include.</param>
     /// <returns>A full-size header block.</returns>
-    public static ReadOnlyMemory<byte> StandardHeaderBlock( bool includeEndMarker, IReadOnlyList<( string Name, string Value )> keywords )
+    public static ReadOnlyMemory< byte > StandardHeaderBlock( bool includeEndMarker, IReadOnlyList< ( string Name, string Value ) > keywords )
     {
-        List<( string Name, string Value )> records =
+        List< ( string Name, string Value ) > records =
         [
             ( "SIMPLE", "T" ),
             ( "BITPIX", "8" ),
@@ -217,9 +226,9 @@ public class TestUtilities
     /// <param name="includeEndMarker">Whether to append the <c>END</c> record.</param>
     /// <param name="keywords">Additional keyword name/value pairs to include.</param>
     /// <returns>A full-size extension-header block.</returns>
-    public static ReadOnlyMemory<byte> StandardExtensionBlock( bool includeEndMarker, IReadOnlyList<( string Name, string Value )> keywords )
+    public static ReadOnlyMemory< byte > StandardExtensionBlock( bool includeEndMarker, IReadOnlyList< ( string Name, string Value ) > keywords )
     {
-        List<( string Name, string Value )> records =
+        List< ( string Name, string Value ) > records =
         [
             ( "XTENSION", "'TABLE    '" ),
             ( "BITPIX",   "8"           ),
@@ -261,7 +270,7 @@ public class TestUtilities
     [ Fact ]
     public void HeaderBlockFromKeywordsRendersEachRecord()
     {
-        ReadOnlyMemory<byte> block = TestUtilities.HeaderBlock(
+        ReadOnlyMemory< byte > block = TestUtilities.HeaderBlock(
         [
             ( "SIMPLE",   "T"        ),
             ( "BITPIX",   "8"        ),
@@ -296,7 +305,7 @@ public class TestUtilities
     [ Fact ]
     public void HeaderBlockFromFieldsPadsEachRecord()
     {
-        ReadOnlyMemory<byte> block = TestUtilities.HeaderBlock(
+        ReadOnlyMemory< byte > block = TestUtilities.HeaderBlock(
         [
             "SIMPLE  = T",
             "BITPIX  = 8",
@@ -323,7 +332,7 @@ public class TestUtilities
     [ Fact ]
     public void StandardHeaderBlockWithEndMarkerPrependsMandatoryKeywords()
     {
-        ReadOnlyMemory<byte> block = TestUtilities.StandardHeaderBlock(
+        ReadOnlyMemory< byte > block = TestUtilities.StandardHeaderBlock(
             includeEndMarker: true,
             keywords:
             [
@@ -353,7 +362,7 @@ public class TestUtilities
     [ Fact ]
     public void StandardHeaderBlockWithoutEndMarkerOmitsTheEndRecord()
     {
-        ReadOnlyMemory<byte> block = TestUtilities.StandardHeaderBlock(
+        ReadOnlyMemory< byte > block = TestUtilities.StandardHeaderBlock(
             includeEndMarker: false,
             keywords:
             [
@@ -383,7 +392,7 @@ public class TestUtilities
     [ Fact ]
     public void StandardExtensionBlockWithEndMarkerPrependsMandatoryKeywords()
     {
-        ReadOnlyMemory<byte> block = TestUtilities.StandardExtensionBlock(
+        ReadOnlyMemory< byte > block = TestUtilities.StandardExtensionBlock(
             includeEndMarker: true,
             keywords:
             [
@@ -413,7 +422,7 @@ public class TestUtilities
     [ Fact ]
     public void StandardExtensionBlockWithoutEndMarkerOmitsTheEndRecord()
     {
-        ReadOnlyMemory<byte> block = TestUtilities.StandardExtensionBlock(
+        ReadOnlyMemory< byte > block = TestUtilities.StandardExtensionBlock(
             includeEndMarker: false,
             keywords:
             [

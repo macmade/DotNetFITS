@@ -32,10 +32,10 @@ namespace DotNetFITS;
 /// Byte-level helpers used to inspect and split FITS data.
 /// </summary>
 /// <remarks>
-/// Extensions on <see cref="ReadOnlyMemory{Byte}"/>, a value type wrapping a
+/// Extensions on <see cref="ReadOnlyMemory{ Byte }"/>, a value type wrapping a
 /// buffer, offset and length whose slicing is O(1) and shares storage, so FITS
 /// data can be inspected and chunked without copying the bytes. The inspection
-/// helpers read the memory through its <see cref="ReadOnlyMemory{T}.Span"/> for a
+/// helpers read the memory through its <see cref="ReadOnlyMemory{ T }.Span"/> for a
 /// tight, allocation-free scan.
 /// </remarks>
 public static class ByteMemoryExtensions
@@ -51,7 +51,7 @@ public static class ByteMemoryExtensions
     /// </remarks>
     /// <param name="data">The data to inspect.</param>
     /// <returns><c>true</c> if every byte is <c>0x7F</c> or below.</returns>
-    public static bool ContainsOnlyASCII( this ReadOnlyMemory<byte> data ) => data.Span.IndexOfAnyExceptInRange( ( byte )0x00, ( byte )0x7F ) < 0;
+    public static bool ContainsOnlyASCII( this ReadOnlyMemory< byte > data ) => data.Span.IndexOfAnyExceptInRange( ( byte )0x00, ( byte )0x7F ) < 0;
 
     /// <summary>
     /// Returns whether every byte is blank padding: an ASCII space (<c>0x20</c>)
@@ -63,7 +63,7 @@ public static class ByteMemoryExtensions
     /// </remarks>
     /// <param name="data">The data to inspect.</param>
     /// <returns><c>true</c> if every byte is an ASCII space or NUL.</returns>
-    public static bool IsBlank( this ReadOnlyMemory<byte> data ) => data.Span.IndexOfAnyExcept( ( byte )0x20, ( byte )0x00 ) < 0;
+    public static bool IsBlank( this ReadOnlyMemory< byte > data ) => data.Span.IndexOfAnyExcept( ( byte )0x20, ( byte )0x00 ) < 0;
 
     /// <summary>
     /// Returns whether every byte is a printable FITS character (in the range
@@ -75,7 +75,7 @@ public static class ByteMemoryExtensions
     /// </remarks>
     /// <param name="data">The data to inspect.</param>
     /// <returns><c>true</c> if every byte is in the range <c>0x20</c> to <c>0x7E</c>.</returns>
-    public static bool ContainsOnlyFITSPrintable( this ReadOnlyMemory<byte> data ) => data.Span.IndexOfAnyExceptInRange( ( byte )0x20, ( byte )0x7E ) < 0;
+    public static bool ContainsOnlyFITSPrintable( this ReadOnlyMemory< byte > data ) => data.Span.IndexOfAnyExceptInRange( ( byte )0x20, ( byte )0x7E ) < 0;
 
     /// <summary>
     /// Splits the data into consecutive, storage-sharing chunks of a fixed size.
@@ -91,7 +91,7 @@ public static class ByteMemoryExtensions
     /// <paramref name="data"/> is not an exact multiple of
     /// <paramref name="size"/>.
     /// </exception>
-    public static IReadOnlyList<ReadOnlyMemory<byte>> Chunked( this ReadOnlyMemory<byte> data, int size )
+    public static IReadOnlyList< ReadOnlyMemory< byte > > Chunked( this ReadOnlyMemory< byte > data, int size )
     {
         if( size <= 0 )
         {
@@ -116,5 +116,5 @@ public static class ByteMemoryExtensions
     /// <param name="data">The data to inspect.</param>
     /// <param name="prefix">The byte prefix to look for.</param>
     /// <returns><c>true</c> if <paramref name="data"/> starts with <paramref name="prefix"/>.</returns>
-    public static bool StartsWith( this ReadOnlyMemory<byte> data, ReadOnlySpan<byte> prefix ) => data.Span.StartsWith( prefix );
+    public static bool StartsWith( this ReadOnlyMemory< byte > data, ReadOnlySpan< byte > prefix ) => data.Span.StartsWith( prefix );
 }

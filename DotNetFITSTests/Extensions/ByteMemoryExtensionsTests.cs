@@ -34,7 +34,7 @@ namespace DotNetFITSTests;
 /// </summary>
 /// <remarks>
 /// Exercises the <see cref="ByteMemoryExtensions"/> helpers on
-/// <see cref="ReadOnlyMemory{Byte}"/>, including guard tests for <c>IsBlank</c>,
+/// <see cref="ReadOnlyMemory{ Byte }"/>, including guard tests for <c>IsBlank</c>,
 /// <c>ContainsOnlyFITSPrintable</c> and <c>StartsWith</c>.
 /// </remarks>
 public class ByteMemoryExtensionsTests
@@ -46,8 +46,8 @@ public class ByteMemoryExtensionsTests
     [ Fact ]
     public void ContainsOnlyASCIIIsTrueOnlyForBytesUpTo0x7F()
     {
-        ReadOnlyMemory<byte> ascii  = Enumerable.Range( 0x00, 0x80 ).Select( value => ( byte )value ).ToArray();
-        ReadOnlyMemory<byte> binary = Enumerable.Range( 0x00, 0x100 ).Select( value => ( byte )value ).ToArray();
+        ReadOnlyMemory< byte > ascii  = Enumerable.Range( 0x00, 0x80 ).Select( value => ( byte )value ).ToArray();
+        ReadOnlyMemory< byte > binary = Enumerable.Range( 0x00, 0x100 ).Select( value => ( byte )value ).ToArray();
 
         Assert.True( ascii.ContainsOnlyASCII() );
         Assert.False( binary.ContainsOnlyASCII() );
@@ -60,10 +60,10 @@ public class ByteMemoryExtensionsTests
     [ Fact ]
     public void IsBlankIsTrueOnlyForSpaceAndNulBytes()
     {
-        ReadOnlyMemory<byte> spaces = Enumerable.Repeat( ( byte )0x20, 16 ).ToArray();
-        ReadOnlyMemory<byte> nuls   = Enumerable.Repeat( ( byte )0x00, 16 ).ToArray();
-        ReadOnlyMemory<byte> mixed  = new byte[] { 0x20, 0x00, 0x20, 0x00 };
-        ReadOnlyMemory<byte> text   = new byte[] { 0x20, 0x41, 0x00 };
+        ReadOnlyMemory< byte > spaces = Enumerable.Repeat( ( byte )0x20, 16 ).ToArray();
+        ReadOnlyMemory< byte > nuls   = Enumerable.Repeat( ( byte )0x00, 16 ).ToArray();
+        ReadOnlyMemory< byte > mixed  = new byte[] { 0x20, 0x00, 0x20, 0x00 };
+        ReadOnlyMemory< byte > text   = new byte[] { 0x20, 0x41, 0x00 };
 
         Assert.True( spaces.IsBlank() );
         Assert.True( nuls.IsBlank() );
@@ -79,9 +79,9 @@ public class ByteMemoryExtensionsTests
     [ Fact ]
     public void ContainsOnlyFITSPrintableIsTrueOnlyForBytes0x20To0x7E()
     {
-        ReadOnlyMemory<byte> printable   = Enumerable.Range( 0x20, ( 0x7E - 0x20 ) + 1 ).Select( value => ( byte )value ).ToArray();
-        ReadOnlyMemory<byte> withControl = new byte[] { 0x20, 0x1F, 0x21 };
-        ReadOnlyMemory<byte> withDelete  = new byte[] { 0x20, 0x7F, 0x21 };
+        ReadOnlyMemory< byte > printable   = Enumerable.Range( 0x20, ( 0x7E - 0x20 ) + 1 ).Select( value => ( byte )value ).ToArray();
+        ReadOnlyMemory< byte > withControl = new byte[] { 0x20, 0x1F, 0x21 };
+        ReadOnlyMemory< byte > withDelete  = new byte[] { 0x20, 0x7F, 0x21 };
 
         Assert.True( printable.ContainsOnlyFITSPrintable() );
         Assert.False( withControl.ContainsOnlyFITSPrintable() );
@@ -95,7 +95,7 @@ public class ByteMemoryExtensionsTests
     [ Fact ]
     public void ChunkedSplitsIntoEqualSizedChunks()
     {
-        ReadOnlyMemory<byte> data = Enumerable.Range( 0x00, 0x100 ).Select( value => ( byte )value ).ToArray();
+        ReadOnlyMemory< byte > data = Enumerable.Range( 0x00, 0x100 ).Select( value => ( byte )value ).ToArray();
 
         Assert.Equal( 256, data.Chunked(   1 ).Count );
         Assert.Equal( 128, data.Chunked(   2 ).Count );
@@ -116,10 +116,10 @@ public class ByteMemoryExtensionsTests
     [ Fact ]
     public void ChunkedThrowsForNonPositiveSizeOrUnevenLength()
     {
-        ReadOnlyMemory<byte> data = Enumerable.Range( 0x00, 0x100 ).Select( value => ( byte )value ).ToArray();
+        ReadOnlyMemory< byte > data = Enumerable.Range( 0x00, 0x100 ).Select( value => ( byte )value ).ToArray();
 
-        Assert.Throws<FITSException>( () => data.Chunked( 0 ) );
-        Assert.Throws<FITSException>( () => data.Chunked( 3 ) );
+        Assert.Throws< FITSException >( () => data.Chunked( 0 ) );
+        Assert.Throws< FITSException >( () => data.Chunked( 3 ) );
     }
 
     /// <summary>
@@ -128,17 +128,17 @@ public class ByteMemoryExtensionsTests
     /// correct bytes.
     /// </summary>
     /// <remarks>
-    /// Because <see cref="ReadOnlyMemory{T}.Slice(int, int)"/> re-bases a slice to
+    /// Because <see cref="ReadOnlyMemory{ T }.Slice(int, int)"/> re-bases a slice to
     /// index zero, this pins that the chunk offset arithmetic stays correct for a
     /// slice that does not start at the buffer's beginning.
     /// </remarks>
     [ Fact ]
     public void ChunkedHandlesASubSliceIndependentlyOfItsOffset()
     {
-        ReadOnlyMemory<byte> full  = Enumerable.Range( 0, 160 ).Select( value => ( byte )value ).ToArray();
-        ReadOnlyMemory<byte> slice = full.Slice( 80, 80 );
+        ReadOnlyMemory< byte > full  = Enumerable.Range( 0, 160 ).Select( value => ( byte )value ).ToArray();
+        ReadOnlyMemory< byte > slice = full.Slice( 80, 80 );
 
-        IReadOnlyList<ReadOnlyMemory<byte>> chunks = slice.Chunked( 40 );
+        IReadOnlyList< ReadOnlyMemory< byte > > chunks = slice.Chunked( 40 );
 
         Assert.Equal( 2, chunks.Count );
         Assert.Equal( Enumerable.Range(  80, 40 ).Select( value => ( byte )value ).ToArray(), chunks[ 0 ].ToArray() );
@@ -153,8 +153,8 @@ public class ByteMemoryExtensionsTests
     [ Fact ]
     public void StartsWithMatchesABytePrefix()
     {
-        ReadOnlyMemory<byte> data      = "XTENSION= 'TABLE    '"u8.ToArray();
-        ReadOnlyMemory<byte> shortData = "XT"u8.ToArray();
+        ReadOnlyMemory< byte > data      = "XTENSION= 'TABLE    '"u8.ToArray();
+        ReadOnlyMemory< byte > shortData = "XT"u8.ToArray();
 
         Assert.True( data.StartsWith( "XTENSION="u8 ) );
         Assert.False( data.StartsWith( "SIMPLE  ="u8 ) );

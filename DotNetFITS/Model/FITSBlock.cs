@@ -46,7 +46,7 @@ namespace DotNetFITS;
 public sealed class FITSBlock
 {
     /// <summary>The raw 2880 bytes of the block.</summary>
-    public ReadOnlyMemory<byte> Data { get; }
+    public ReadOnlyMemory< byte > Data { get; }
 
     /// <summary>The parsing options applied when computing the structural flags.</summary>
     private FITSParsingOptions Options { get; }
@@ -83,7 +83,7 @@ public sealed class FITSBlock
     /// <paramref name="data"/> is not exactly <see cref="FITSFile.BlockSize"/>
     /// bytes.
     /// </exception>
-    public FITSBlock( ReadOnlyMemory<byte> data, FITSParsingOptions options )
+    public FITSBlock( ReadOnlyMemory< byte > data, FITSParsingOptions options )
     {
         if( data.Length != FITSFile.BlockSize )
         {
@@ -150,7 +150,7 @@ public sealed class FITSBlock
 
     /// <summary>Returns a textual summary of the block's structural flags.</summary>
     /// <returns>A summary string listing the three structural flags.</returns>
-    public override string ToString() => $"FITSBlock {{ ContainsOnlyASCII: {this.ContainsOnlyASCII}, HasEndMarker: {this.HasEndMarker}, HasExtensionMarker: {this.HasExtensionMarker} }}";
+    public override string ToString() => $"FITSBlock {{ ContainsOnlyASCII: { this.ContainsOnlyASCII }, HasEndMarker: { this.HasEndMarker }, HasExtensionMarker: { this.HasExtensionMarker } }}";
 
     /// <summary>
     /// Scans the block's records for an <c>END</c> marker.
@@ -171,7 +171,7 @@ public sealed class FITSBlock
             return false;
         }
 
-        Func<char, bool> isPadding = this.Options.HasFlag( FITSParsingOptions.AllowNulPadding ) ? FITSCharacterSet.IsPaddingWithNul : FITSCharacterSet.IsPadding;
+        Func< char, bool > isPadding = this.Options.HasFlag( FITSParsingOptions.AllowNulPadding ) ? FITSCharacterSet.IsPaddingWithNul : FITSCharacterSet.IsPadding;
 
         return this.Data.Chunked( FITSFile.CardSize ).Any( record => Encoding.ASCII.GetString( record.Span ).RightTrimming( isPadding ) == "END" );
     }

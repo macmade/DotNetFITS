@@ -95,7 +95,7 @@ public class StringExtensionsTests
     [ Fact ]
     public void PaddedOrTruncatedRejectsNegativeLength()
     {
-        ArgumentOutOfRangeException exception = Assert.Throws<ArgumentOutOfRangeException>( () => "ABC".PaddedOrTruncated( -1 ) );
+        ArgumentOutOfRangeException exception = Assert.Throws< ArgumentOutOfRangeException >( () => "ABC".PaddedOrTruncated( -1 ) );
 
         Assert.Equal( "length", exception.ParamName );
     }

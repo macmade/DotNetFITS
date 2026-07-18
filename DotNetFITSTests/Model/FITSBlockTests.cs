@@ -56,12 +56,12 @@ public class FITSBlockTests
     [ Fact ]
     public void HasEndMarkerDetectsTheFirstEndRecord()
     {
-        ReadOnlyMemory<byte> data1  = TestUtilities.HeaderBlock( [ "FOO     = 1", "BAR     = 1", "END        " ] );
-        ReadOnlyMemory<byte> data2  = TestUtilities.HeaderBlock( [ "FOO     = 1", "BAR     = 1", " END       " ] );
-        ReadOnlyMemory<byte> data3  = TestUtilities.HeaderBlock( [ "FOO     = 1", "END        ", "BAR     = 1" ] );
-        FITSBlock            block1 = new FITSBlock( data1, FITSParsingOptions.Strict );
-        FITSBlock            block2 = new FITSBlock( data2, FITSParsingOptions.Strict );
-        FITSBlock            block3 = new FITSBlock( data3, FITSParsingOptions.Strict );
+        ReadOnlyMemory< byte > data1  = TestUtilities.HeaderBlock( [ "FOO     = 1", "BAR     = 1", "END        " ] );
+        ReadOnlyMemory< byte > data2  = TestUtilities.HeaderBlock( [ "FOO     = 1", "BAR     = 1", " END       " ] );
+        ReadOnlyMemory< byte > data3  = TestUtilities.HeaderBlock( [ "FOO     = 1", "END        ", "BAR     = 1" ] );
+        FITSBlock              block1 = new FITSBlock( data1, FITSParsingOptions.Strict );
+        FITSBlock              block2 = new FITSBlock( data2, FITSParsingOptions.Strict );
+        FITSBlock              block3 = new FITSBlock( data3, FITSParsingOptions.Strict );
 
         Assert.True( block1.HasEndMarker );
         Assert.False( block2.HasEndMarker );
@@ -75,10 +75,10 @@ public class FITSBlockTests
     [ Fact ]
     public void HasEndMarkerMatchesExactlyNotByPrefix()
     {
-        ReadOnlyMemory<byte> data1  = TestUtilities.HeaderBlock( [ "FOO     = 1", "ENDED   = 1" ] );
-        ReadOnlyMemory<byte> data2  = TestUtilities.HeaderBlock( [ "FOO     = 1", "ENDTIME = 1" ] );
-        FITSBlock            block1 = new FITSBlock( data1, FITSParsingOptions.Strict );
-        FITSBlock            block2 = new FITSBlock( data2, FITSParsingOptions.Strict );
+        ReadOnlyMemory< byte > data1  = TestUtilities.HeaderBlock( [ "FOO     = 1", "ENDED   = 1" ] );
+        ReadOnlyMemory< byte > data2  = TestUtilities.HeaderBlock( [ "FOO     = 1", "ENDTIME = 1" ] );
+        FITSBlock              block1 = new FITSBlock( data1, FITSParsingOptions.Strict );
+        FITSBlock              block2 = new FITSBlock( data2, FITSParsingOptions.Strict );
 
         Assert.False( block1.HasEndMarker );
         Assert.False( block2.HasEndMarker );
@@ -114,14 +114,14 @@ public class FITSBlockTests
     [ Fact ]
     public void HasExtensionMarkerDetectsTheXtensionKeyword()
     {
-        ReadOnlyMemory<byte> data1  = TestUtilities.HeaderBlock( [ "XTENSION  'TABLE    ' ", "FOO     = 1          ", "BAR     = 1" ] );
-        ReadOnlyMemory<byte> data2  = TestUtilities.HeaderBlock( [ "XTENSION= 'TABLE    ' ", "FOO     = 1          ", "BAR     = 1" ] );
-        ReadOnlyMemory<byte> data3  = TestUtilities.HeaderBlock( [ " XTENSION= 'TABLE    '", "FOO     = 1          ", "BAR     = 1" ] );
-        ReadOnlyMemory<byte> data4  = TestUtilities.HeaderBlock( [ "FOO     = 1           ", "XTENSION= 'TABLE    '", "BAR     = 1" ] );
-        FITSBlock            block1 = new FITSBlock( data1, FITSParsingOptions.Strict );
-        FITSBlock            block2 = new FITSBlock( data2, FITSParsingOptions.Strict );
-        FITSBlock            block3 = new FITSBlock( data3, FITSParsingOptions.Strict );
-        FITSBlock            block4 = new FITSBlock( data4, FITSParsingOptions.Strict );
+        ReadOnlyMemory< byte > data1  = TestUtilities.HeaderBlock( [ "XTENSION  'TABLE    ' ", "FOO     = 1          ", "BAR     = 1" ] );
+        ReadOnlyMemory< byte > data2  = TestUtilities.HeaderBlock( [ "XTENSION= 'TABLE    ' ", "FOO     = 1          ", "BAR     = 1" ] );
+        ReadOnlyMemory< byte > data3  = TestUtilities.HeaderBlock( [ " XTENSION= 'TABLE    '", "FOO     = 1          ", "BAR     = 1" ] );
+        ReadOnlyMemory< byte > data4  = TestUtilities.HeaderBlock( [ "FOO     = 1           ", "XTENSION= 'TABLE    '", "BAR     = 1" ] );
+        FITSBlock              block1 = new FITSBlock( data1, FITSParsingOptions.Strict );
+        FITSBlock              block2 = new FITSBlock( data2, FITSParsingOptions.Strict );
+        FITSBlock              block3 = new FITSBlock( data3, FITSParsingOptions.Strict );
+        FITSBlock              block4 = new FITSBlock( data4, FITSParsingOptions.Strict );
 
         Assert.False( block1.HasExtensionMarker );
         Assert.True( block2.HasExtensionMarker );
@@ -136,8 +136,8 @@ public class FITSBlockTests
     [ Fact ]
     public void HasEndMarkerAndExtensionMarkerCanBothBeTrue()
     {
-        ReadOnlyMemory<byte> data  = TestUtilities.StandardExtensionBlock( includeEndMarker: true, keywords: [ ( "FOO", "1" ), ( "BAR", "1" ) ] );
-        FITSBlock            block = new FITSBlock( data, FITSParsingOptions.Strict );
+        ReadOnlyMemory< byte > data  = TestUtilities.StandardExtensionBlock( includeEndMarker: true, keywords: [ ( "FOO", "1" ), ( "BAR", "1" ) ] );
+        FITSBlock              block = new FITSBlock( data, FITSParsingOptions.Strict );
 
         Assert.True( block.HasEndMarker );
         Assert.True( block.HasExtensionMarker );
@@ -198,7 +198,7 @@ public class FITSBlockTests
     [ Fact ]
     public void ConstructorRejectsEmptyData()
     {
-        Assert.Throws<FITSException>( () => new FITSBlock( ReadOnlyMemory<byte>.Empty, FITSParsingOptions.Strict ) );
+        Assert.Throws< FITSException >( () => new FITSBlock( ReadOnlyMemory< byte >.Empty, FITSParsingOptions.Strict ) );
     }
 
     /// <summary>
@@ -209,7 +209,7 @@ public class FITSBlockTests
     [ Fact ]
     public void ConstructorRejectsWrongSizeWithInvalidBlockSize()
     {
-        FITSException exception = Assert.Throws<FITSException>( () => new FITSBlock( new byte[ FITSFile.BlockSize + 1 ], FITSParsingOptions.Strict ) );
+        FITSException exception = Assert.Throws< FITSException >( () => new FITSBlock( new byte[ FITSFile.BlockSize + 1 ], FITSParsingOptions.Strict ) );
 
         Assert.Equal( FITSErrorKind.InvalidBlockSize, exception.Kind );
     }

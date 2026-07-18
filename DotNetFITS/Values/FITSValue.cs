@@ -50,7 +50,7 @@ namespace DotNetFITS;
 /// constant so equal-<c>NaN</c> values share a bucket.
 /// </para>
 /// </remarks>
-public readonly struct FITSValue : IEquatable<FITSValue>
+public readonly struct FITSValue : IEquatable< FITSValue >
 {
     /// <summary>The active case discriminator.</summary>
     private readonly FITSValueKind kind;
@@ -254,7 +254,7 @@ public readonly struct FITSValue : IEquatable<FITSValue>
     {
         if( double.IsFinite( value ) == false )
         {
-            throw FITSException.InvalidValueForSerialization( $"Cannot represent the non-finite floating-point value {value.ToString( CultureInfo.InvariantCulture )}" );
+            throw FITSException.InvalidValueForSerialization( $"Cannot represent the non-finite floating-point value { value.ToString( CultureInfo.InvariantCulture ) }" );
         }
 
         // .NET's default formatting is the shortest round-trippable decimal, and

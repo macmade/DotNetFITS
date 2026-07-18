@@ -55,9 +55,9 @@ public class FITSPropertyTests
     [ Fact ]
     public void ConstructsFromData()
     {
-        Assert.Throws<FITSException>( () => new FITSProperty( Bytes( 0xFF, 80 ), FITSParsingOptions.Lenient ) );
-        Assert.Throws<FITSException>( () => new FITSProperty( Bytes( 0x20, 79 ), FITSParsingOptions.Lenient ) );
-        Assert.Throws<FITSException>( () => new FITSProperty( Bytes( 0x20, 81 ), FITSParsingOptions.Lenient ) );
+        Assert.Throws< FITSException >( () => new FITSProperty( Bytes( 0xFF, 80 ), FITSParsingOptions.Lenient ) );
+        Assert.Throws< FITSException >( () => new FITSProperty( Bytes( 0x20, 79 ), FITSParsingOptions.Lenient ) );
+        Assert.Throws< FITSException >( () => new FITSProperty( Bytes( 0x20, 81 ), FITSParsingOptions.Lenient ) );
 
         FITSProperty property = new FITSProperty( Bytes( 0x20, 80 ), FITSParsingOptions.Lenient );
 
@@ -74,9 +74,9 @@ public class FITSPropertyTests
     [ Fact ]
     public void ConstructsFromString()
     {
-        Assert.Throws<FITSException>( () => new FITSProperty( new string( 'ÿ', 80 ), FITSParsingOptions.Lenient ) );
-        Assert.Throws<FITSException>( () => new FITSProperty( new string( ' ', 79 ), FITSParsingOptions.Lenient ) );
-        Assert.Throws<FITSException>( () => new FITSProperty( new string( ' ', 81 ), FITSParsingOptions.Lenient ) );
+        Assert.Throws< FITSException >( () => new FITSProperty( new string( 'ÿ', 80 ), FITSParsingOptions.Lenient ) );
+        Assert.Throws< FITSException >( () => new FITSProperty( new string( ' ', 79 ), FITSParsingOptions.Lenient ) );
+        Assert.Throws< FITSException >( () => new FITSProperty( new string( ' ', 81 ), FITSParsingOptions.Lenient ) );
 
         FITSProperty property = new FITSProperty( new string( ' ', 80 ), FITSParsingOptions.Lenient );
 
@@ -131,7 +131,7 @@ public class FITSPropertyTests
     {
         string text = new string( 'A', 200 );
 
-        FITSProperty property = new FITSProperty( "OBJECT", $"'{text}'", FITSParsingOptions.Lenient );
+        FITSProperty property = new FITSProperty( "OBJECT", $"'{ text }'", FITSParsingOptions.Lenient );
 
         Assert.Equal( FITSValue.String( text ), property.Value );
     }
@@ -172,7 +172,7 @@ public class FITSPropertyTests
     [ Fact ]
     public void ConstructsFromRawValueRejectingAnInvalidName()
     {
-        Assert.Throws<FITSException>( () => new FITSProperty( "BAD NAME", "1", FITSParsingOptions.Lenient ) );
+        Assert.Throws< FITSException >( () => new FITSProperty( "BAD NAME", "1", FITSParsingOptions.Lenient ) );
     }
 
     /// <summary>
@@ -185,7 +185,7 @@ public class FITSPropertyTests
         string record = "COMMENT é" + new string( ' ', 71 );
 
         Assert.Equal( 80, record.Length );
-        Assert.Throws<FITSException>( () => new FITSProperty( record, FITSParsingOptions.Lenient ) );
+        Assert.Throws< FITSException >( () => new FITSProperty( record, FITSParsingOptions.Lenient ) );
 
         string ascii = "COMMENT Hello" + new string( ' ', 67 );
 
@@ -202,7 +202,7 @@ public class FITSPropertyTests
     [ Fact ]
     public void ConstructsFromStringReportingLengthInMessage()
     {
-        FITSException exception = Assert.Throws<FITSException>( () => new FITSProperty( new string( ' ', 79 ), FITSParsingOptions.Lenient ) );
+        FITSException exception = Assert.Throws< FITSException >( () => new FITSProperty( new string( ' ', 79 ), FITSParsingOptions.Lenient ) );
 
         Assert.Contains( "Invalid property data length (79)", exception.Message, StringComparison.Ordinal );
     }
@@ -405,7 +405,7 @@ public class FITSPropertyTests
 
         foreach( string value in cases )
         {
-            FITSProperty property = new FITSProperty( $"FOOBAR  = {value}".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Strict );
+            FITSProperty property = new FITSProperty( $"FOOBAR  = { value }".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Strict );
 
             Assert.Equal( FITSValueKind.Unknown, property.Value.Kind );
             Assert.Equal( FITSValue.Unknown( value ), property.Value );
@@ -429,7 +429,7 @@ public class FITSPropertyTests
 
         foreach( ( string data, double value ) in cases )
         {
-            FITSProperty property = new FITSProperty( $"FOOBAR  = {data}".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Lenient );
+            FITSProperty property = new FITSProperty( $"FOOBAR  = { data }".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Lenient );
 
             Assert.Equal( FITSValueKind.Float, property.Value.Kind );
             Assert.Equal( value, property.Value.AsFloat );
@@ -451,8 +451,8 @@ public class FITSPropertyTests
 
         foreach( ( string data, double value ) in cases )
         {
-            FITSProperty strict  = new FITSProperty( $"FOOBAR  = {data}".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Strict );
-            FITSProperty lenient = new FITSProperty( $"FOOBAR  = {data}".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Lenient );
+            FITSProperty strict  = new FITSProperty( $"FOOBAR  = { data }".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Strict );
+            FITSProperty lenient = new FITSProperty( $"FOOBAR  = { data }".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Lenient );
 
             Assert.Equal( FITSValueKind.Float, strict.Value.Kind );
             Assert.Equal( value, strict.Value.AsFloat );
@@ -472,7 +472,7 @@ public class FITSPropertyTests
 
         foreach( string value in cases )
         {
-            FITSProperty property = new FITSProperty( $"FOOBAR  = {value} / comment".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Lenient );
+            FITSProperty property = new FITSProperty( $"FOOBAR  = { value } / comment".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Lenient );
 
             Assert.Equal( FITSValueKind.Unknown, property.Value.Kind );
             Assert.Equal( FITSValue.Unknown( value ), property.Value );
@@ -522,7 +522,7 @@ public class FITSPropertyTests
             Assert.Equal( value, property.Value.AsString );
         }
 
-        Assert.Throws<FITSException>( () => new FITSProperty( "FOOBAR  = 'hello, world".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Lenient ) );
+        Assert.Throws< FITSException >( () => new FITSProperty( "FOOBAR  = 'hello, world".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Lenient ) );
     }
 
     /// <summary>
@@ -532,8 +532,8 @@ public class FITSPropertyTests
     [ Fact ]
     public void RejectsJunkAfterClosingQuoteWhenStrict()
     {
-        Assert.Throws<FITSException>( () => new FITSProperty( "FOOBAR  = 'hi' junk / comment".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Strict ) );
-        Assert.Throws<FITSException>( () => new FITSProperty( "FOOBAR  = 'hi' junk".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Strict ) );
+        Assert.Throws< FITSException >( () => new FITSProperty( "FOOBAR  = 'hi' junk / comment".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Strict ) );
+        Assert.Throws< FITSException >( () => new FITSProperty( "FOOBAR  = 'hi' junk".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Strict ) );
 
         FITSProperty property = new FITSProperty( "FOOBAR  = 'hi'   / comment".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Strict );
 
@@ -681,7 +681,7 @@ public class FITSPropertyTests
     {
         string record = "FOOBAR  =T".PaddedOrTruncated( FITSFile.CardSize );
 
-        Assert.Throws<FITSException>( () => new FITSProperty( record, FITSParsingOptions.Strict ) );
+        Assert.Throws< FITSException >( () => new FITSProperty( record, FITSParsingOptions.Strict ) );
     }
 
     /// <summary>
@@ -741,8 +741,8 @@ public class FITSPropertyTests
         FITSProperty p1 = new FITSProperty( "SIMPLE  = T  ".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Lenient );
         FITSProperty p2 = new FITSProperty( "HISTORY world".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Lenient );
 
-        Assert.Throws<FITSException>( () => p1.Merge( p2 ) );
-        Assert.Throws<FITSException>( () => p2.Merge( p1 ) );
+        Assert.Throws< FITSException >( () => p1.Merge( p2 ) );
+        Assert.Throws< FITSException >( () => p2.Merge( p1 ) );
     }
 
     /// <summary>
@@ -772,8 +772,8 @@ public class FITSPropertyTests
         FITSProperty p1 = new FITSProperty( "SIMPLE  = T  ".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Lenient );
         FITSProperty p2 = new FITSProperty( "COMMENT world".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Lenient );
 
-        Assert.Throws<FITSException>( () => p1.Merge( p2 ) );
-        Assert.Throws<FITSException>( () => p2.Merge( p1 ) );
+        Assert.Throws< FITSException >( () => p1.Merge( p2 ) );
+        Assert.Throws< FITSException >( () => p2.Merge( p1 ) );
     }
 
     /// <summary>
@@ -830,8 +830,8 @@ public class FITSPropertyTests
         Assert.Equal( "hello", p2.Value.AsString );
         Assert.Equal( ", world", p3.Value.AsString );
 
-        Assert.Throws<FITSException>( () => p1.Merge( p2 ) );
-        Assert.Throws<FITSException>( () => p2.Merge( p3 ) );
+        Assert.Throws< FITSException >( () => p1.Merge( p2 ) );
+        Assert.Throws< FITSException >( () => p2.Merge( p3 ) );
     }
 
     /// <summary>
@@ -921,10 +921,10 @@ public class FITSPropertyTests
     [ Fact ]
     public void RejectsInvalidContinue()
     {
-        Assert.Throws<FITSException>( () => new FITSProperty( "CONTINUE=   ".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Lenient ) );
-        Assert.Throws<FITSException>( () => new FITSProperty( "CONTINUE='' ".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Lenient ) );
-        Assert.Throws<FITSException>( () => new FITSProperty( "CONTINUE= ''".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Lenient ) );
-        Assert.Throws<FITSException>( () => new FITSProperty( "CONTINUE=  0".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Lenient ) );
+        Assert.Throws< FITSException >( () => new FITSProperty( "CONTINUE=   ".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Lenient ) );
+        Assert.Throws< FITSException >( () => new FITSProperty( "CONTINUE='' ".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Lenient ) );
+        Assert.Throws< FITSException >( () => new FITSProperty( "CONTINUE= ''".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Lenient ) );
+        Assert.Throws< FITSException >( () => new FITSProperty( "CONTINUE=  0".PaddedOrTruncated( FITSFile.CardSize ), FITSParsingOptions.Lenient ) );
     }
 
     /// <summary>
@@ -951,13 +951,13 @@ public class FITSPropertyTests
         Assert.Equal( "NAXIS1", FITSProperty.NormalizedKeyword( "NAXIS1", FITSSerializationOptions.Strict ) );
         Assert.Equal( "", FITSProperty.NormalizedKeyword( "", FITSSerializationOptions.Strict ) );
 
-        Assert.Throws<FITSException>( () => FITSProperty.NormalizedKeyword( "foo", FITSSerializationOptions.Strict ) );
+        Assert.Throws< FITSException >( () => FITSProperty.NormalizedKeyword( "foo", FITSSerializationOptions.Strict ) );
         Assert.Equal( "FOO", FITSProperty.NormalizedKeyword( "foo", FITSSerializationOptions.Lenient ) );
 
-        Assert.Throws<FITSException>( () => FITSProperty.NormalizedKeyword( "foo bar", FITSSerializationOptions.Lenient ) );
+        Assert.Throws< FITSException >( () => FITSProperty.NormalizedKeyword( "foo bar", FITSSerializationOptions.Lenient ) );
 
-        Assert.Throws<FITSException>( () => FITSProperty.NormalizedKeyword( "TOOLONGNAME", FITSSerializationOptions.Strict ) );
-        Assert.Throws<FITSException>( () => FITSProperty.NormalizedKeyword( "TOOLONGNAME", FITSSerializationOptions.Lenient ) );
+        Assert.Throws< FITSException >( () => FITSProperty.NormalizedKeyword( "TOOLONGNAME", FITSSerializationOptions.Strict ) );
+        Assert.Throws< FITSException >( () => FITSProperty.NormalizedKeyword( "TOOLONGNAME", FITSSerializationOptions.Lenient ) );
     }
 
     /// <summary>
@@ -1012,9 +1012,9 @@ public class FITSPropertyTests
     [ Fact ]
     public void ConstructRejectsInvalidKeywordWhenStrict()
     {
-        Assert.Throws<FITSException>( () => new FITSProperty( "foo",         FITSValue.Integer( 1 ), FITSSerializationOptions.Strict ) );
-        Assert.Throws<FITSException>( () => new FITSProperty( "FOO BAR",     FITSValue.Integer( 1 ), FITSSerializationOptions.Strict ) );
-        Assert.Throws<FITSException>( () => new FITSProperty( "TOOLONGNAME", FITSValue.Integer( 1 ), FITSSerializationOptions.Strict ) );
+        Assert.Throws< FITSException >( () => new FITSProperty( "foo",         FITSValue.Integer( 1 ), FITSSerializationOptions.Strict ) );
+        Assert.Throws< FITSException >( () => new FITSProperty( "FOO BAR",     FITSValue.Integer( 1 ), FITSSerializationOptions.Strict ) );
+        Assert.Throws< FITSException >( () => new FITSProperty( "TOOLONGNAME", FITSValue.Integer( 1 ), FITSSerializationOptions.Strict ) );
 
         FITSProperty simple    = new FITSProperty( "SIMPLE",  true,              FITSSerializationOptions.Strict );
         FITSProperty blank     = new FITSProperty( "",        FITSValue.Undefined, FITSSerializationOptions.Strict );
@@ -1037,8 +1037,8 @@ public class FITSPropertyTests
 
         Assert.Equal( "FOO", property.Name );
 
-        Assert.Throws<FITSException>( () => new FITSProperty( "foo bar",     FITSValue.Integer( 1 ), FITSSerializationOptions.Lenient ) );
-        Assert.Throws<FITSException>( () => new FITSProperty( "toolongname", FITSValue.Integer( 1 ), FITSSerializationOptions.Lenient ) );
+        Assert.Throws< FITSException >( () => new FITSProperty( "foo bar",     FITSValue.Integer( 1 ), FITSSerializationOptions.Lenient ) );
+        Assert.Throws< FITSException >( () => new FITSProperty( "toolongname", FITSValue.Integer( 1 ), FITSSerializationOptions.Lenient ) );
     }
 
     /// <summary>

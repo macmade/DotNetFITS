@@ -48,7 +48,7 @@ public static class StringExtensions
     /// <returns>
     /// <paramref name="value"/> without its leading matching characters.
     /// </returns>
-    public static string LeftTrimming( this string value, Func<char, bool> predicate )
+    public static string LeftTrimming( this string value, Func< char, bool > predicate )
     {
         int start = 0;
 
@@ -75,7 +75,7 @@ public static class StringExtensions
     /// <returns>
     /// <paramref name="value"/> without its trailing matching characters.
     /// </returns>
-    public static string RightTrimming( this string value, Func<char, bool> predicate )
+    public static string RightTrimming( this string value, Func< char, bool > predicate )
     {
         int end = value.Length;
 

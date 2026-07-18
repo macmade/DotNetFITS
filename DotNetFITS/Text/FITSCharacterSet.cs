@@ -31,7 +31,7 @@ namespace DotNetFITS;
 /// The FITS padding, padding-with-NUL and keyword character sets, each expressed
 /// as a <see cref="char"/> membership predicate (.NET has no character-set type).
 /// The predicates are exposed as static methods so they convert to
-/// <see cref="System.Func{T, TResult}"/> method groups for the trimming helpers
+/// <see cref="System.Func{ T, TResult }"/> method groups for the trimming helpers
 /// in <see cref="StringExtensions"/> and compose with <c>string</c> / <c>char</c>
 /// sequence checks.
 /// </remarks>

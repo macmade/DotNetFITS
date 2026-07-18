@@ -59,55 +59,55 @@ public sealed class FITSException : Exception
     /// <summary>Creates an <see cref="FITSErrorKind.InvalidFileURL"/> error.</summary>
     /// <param name="path">The offending file path.</param>
     /// <returns>The created exception.</returns>
-    public static FITSException InvalidFileURL( string path ) => new FITSException( FITSErrorKind.InvalidFileURL, $"Invalid file URL: {path}" );
+    public static FITSException InvalidFileURL( string path ) => new FITSException( FITSErrorKind.InvalidFileURL, $"Invalid file URL: { path }" );
 
     /// <summary>Creates a <see cref="FITSErrorKind.CannotReadFile"/> error.</summary>
     /// <param name="path">The file that could not be read.</param>
     /// <returns>The created exception.</returns>
-    public static FITSException CannotReadFile( string path ) => new FITSException( FITSErrorKind.CannotReadFile, $"Cannot read file: {path}" );
+    public static FITSException CannotReadFile( string path ) => new FITSException( FITSErrorKind.CannotReadFile, $"Cannot read file: { path }" );
 
     /// <summary>Creates an <see cref="FITSErrorKind.InvalidBlockSize"/> error.</summary>
     /// <param name="size">The offending block size, in bytes.</param>
     /// <returns>The created exception.</returns>
-    public static FITSException InvalidBlockSize( int size ) => new FITSException( FITSErrorKind.InvalidBlockSize, $"Invalid block size: {size.ToString( CultureInfo.InvariantCulture )}" );
+    public static FITSException InvalidBlockSize( int size ) => new FITSException( FITSErrorKind.InvalidBlockSize, $"Invalid block size: { size.ToString( CultureInfo.InvariantCulture ) }" );
 
     /// <summary>Creates an <see cref="FITSErrorKind.InvalidBlockData"/> error.</summary>
     /// <param name="reason">A description of the specific problem.</param>
     /// <returns>The created exception.</returns>
-    public static FITSException InvalidBlockData( string reason ) => new FITSException( FITSErrorKind.InvalidBlockData, $"Invalid block data: {reason}" );
+    public static FITSException InvalidBlockData( string reason ) => new FITSException( FITSErrorKind.InvalidBlockData, $"Invalid block data: { reason }" );
 
     /// <summary>Creates an <see cref="FITSErrorKind.InvalidSectionData"/> error.</summary>
     /// <param name="reason">A description of the specific problem.</param>
     /// <returns>The created exception.</returns>
-    public static FITSException InvalidSectionData( string reason ) => new FITSException( FITSErrorKind.InvalidSectionData, $"Invalid section data: {reason}" );
+    public static FITSException InvalidSectionData( string reason ) => new FITSException( FITSErrorKind.InvalidSectionData, $"Invalid section data: { reason }" );
 
     /// <summary>Creates an <see cref="FITSErrorKind.InvalidFileData"/> error.</summary>
     /// <param name="reason">A description of the specific problem.</param>
     /// <returns>The created exception.</returns>
-    public static FITSException InvalidFileData( string reason ) => new FITSException( FITSErrorKind.InvalidFileData, $"Invalid file data: {reason}" );
+    public static FITSException InvalidFileData( string reason ) => new FITSException( FITSErrorKind.InvalidFileData, $"Invalid file data: { reason }" );
 
     /// <summary>Creates an <see cref="FITSErrorKind.InvalidPropertyData"/> error.</summary>
     /// <param name="reason">A description of the specific problem.</param>
     /// <returns>The created exception.</returns>
-    public static FITSException InvalidPropertyData( string reason ) => new FITSException( FITSErrorKind.InvalidPropertyData, $"Invalid property data: {reason}" );
+    public static FITSException InvalidPropertyData( string reason ) => new FITSException( FITSErrorKind.InvalidPropertyData, $"Invalid property data: { reason }" );
 
     /// <summary>Creates a <see cref="FITSErrorKind.DataError"/> error.</summary>
     /// <param name="reason">A description of the specific problem.</param>
     /// <returns>The created exception.</returns>
-    public static FITSException DataError( string reason ) => new FITSException( FITSErrorKind.DataError, $"Data error: {reason}" );
+    public static FITSException DataError( string reason ) => new FITSException( FITSErrorKind.DataError, $"Data error: { reason }" );
 
     /// <summary>Creates an <see cref="FITSErrorKind.InvalidValueForSerialization"/> error.</summary>
     /// <param name="reason">A description of the specific problem.</param>
     /// <returns>The created exception.</returns>
-    public static FITSException InvalidValueForSerialization( string reason ) => new FITSException( FITSErrorKind.InvalidValueForSerialization, $"Invalid value for serialization: {reason}" );
+    public static FITSException InvalidValueForSerialization( string reason ) => new FITSException( FITSErrorKind.InvalidValueForSerialization, $"Invalid value for serialization: { reason }" );
 
     /// <summary>Creates a <see cref="FITSErrorKind.CannotSerialize"/> error.</summary>
     /// <param name="reason">A description of the specific problem.</param>
     /// <returns>The created exception.</returns>
-    public static FITSException CannotSerialize( string reason ) => new FITSException( FITSErrorKind.CannotSerialize, $"Cannot serialize: {reason}" );
+    public static FITSException CannotSerialize( string reason ) => new FITSException( FITSErrorKind.CannotSerialize, $"Cannot serialize: { reason }" );
 
     /// <summary>Creates a <see cref="FITSErrorKind.CannotWriteFile"/> error.</summary>
     /// <param name="path">The path that could not be written.</param>
     /// <returns>The created exception.</returns>
-    public static FITSException CannotWriteFile( string path ) => new FITSException( FITSErrorKind.CannotWriteFile, $"Cannot write file: {path}" );
+    public static FITSException CannotWriteFile( string path ) => new FITSException( FITSErrorKind.CannotWriteFile, $"Cannot write file: { path }" );
 }

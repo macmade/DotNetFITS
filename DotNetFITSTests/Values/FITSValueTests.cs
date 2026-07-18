@@ -189,19 +189,19 @@ public class FITSValueTests
             FITSValue.Unknown( "y" ),
         ];
 
-        HashSet<int> hashes = [ .. values.Select( value => value.GetHashCode() ) ];
+        HashSet< int > hashes = [ .. values.Select( value => value.GetHashCode() ) ];
 
         Assert.Equal( values.Length, hashes.Count );
     }
 
     /// <summary>
-    /// A <see cref="HashSet{T}"/> of values collapses duplicates and equal
+    /// A <see cref="HashSet{ T }"/> of values collapses duplicates and equal
     /// <c>NaN</c>s, and membership honors the custom equality.
     /// </summary>
     [ Fact ]
     public void ValueSetRoundTrips()
     {
-        HashSet<FITSValue> set =
+        HashSet< FITSValue > set =
         [
             FITSValue.Integer( 1 ),
             FITSValue.Integer( 1 ),
@@ -295,7 +295,7 @@ public class FITSValueTests
             string literal = FITSValue.Float( value ).Serialized();
 
             Assert.Matches( @"^[+-]?(?:\d+\.\d*|\.\d+|\d+)(?:[ED][+-]?\d+)?$", literal );
-            Assert.True( literal.IndexOfAny( [ '.', 'E', 'D', 'e', 'd' ] ) >= 0, $"literal '{literal}' must carry a decimal point or exponent" );
+            Assert.True( literal.IndexOfAny( [ '.', 'E', 'D', 'e', 'd' ] ) >= 0, $"literal '{ literal }' must carry a decimal point or exponent" );
         }
     }
 
@@ -306,9 +306,9 @@ public class FITSValueTests
     [ Fact ]
     public void SerializesNonFiniteFloatThrows()
     {
-        Assert.Throws<FITSException>( () => FITSValue.Float( double.PositiveInfinity ).Serialized() );
-        Assert.Throws<FITSException>( () => FITSValue.Float( double.NegativeInfinity ).Serialized() );
-        Assert.Throws<FITSException>( () => FITSValue.Float( double.NaN ).Serialized() );
+        Assert.Throws< FITSException >( () => FITSValue.Float( double.PositiveInfinity ).Serialized() );
+        Assert.Throws< FITSException >( () => FITSValue.Float( double.NegativeInfinity ).Serialized() );
+        Assert.Throws< FITSException >( () => FITSValue.Float( double.NaN ).Serialized() );
     }
 
     /// <summary>
@@ -387,7 +387,7 @@ public class FITSValueTests
     /// <returns>The parsed value.</returns>
     private static FITSValue ParseValue( string literal )
     {
-        string card = $"TEST    = {literal}".PaddedOrTruncated( FITSFile.CardSize );
+        string card = $"TEST    = { literal }".PaddedOrTruncated( FITSFile.CardSize );
 
         return new FITSProperty( card, FITSParsingOptions.Strict ).Value;
     }
