@@ -326,7 +326,7 @@
         <div class="phase">Phase 3 &middot; Property layer</div>
         <ol>
             <li><a href="#m6"><span class="num">M6</span> FITSProperty &mdash; model, construction &amp; parsing</a> <span class="capsule status-completed">Completed</span></li>
-            <li><a href="#m7"><span class="num">M7</span> FITSProperty &mdash; serialization</a> <span class="capsule status-not-started">Not started</span></li>
+            <li><a href="#m7"><span class="num">M7</span> FITSProperty &mdash; serialization</a> <span class="capsule status-completed">Completed</span></li>
         </ol>
 
         <div class="phase">Phase 4 &middot; Section &amp; file layer</div>
@@ -1063,7 +1063,7 @@
     <div class="milestone" id="m7">
         <div class="m-head">
             <h3>M7 &middot; FITSProperty &mdash; serialization</h3>
-            <span class="capsule status-not-started">Not started</span>
+            <span class="capsule status-completed">Completed</span>
         </div>
         <div class="field">
             <div class="label">Goal</div>
@@ -1081,11 +1081,162 @@
                 <li class="task">Port the serialization portions of the <code>FITSProperty</code> tests; adapt only pure float-text formatting expectations.</li>
             </ul>
         </div>
-        <div class="field"><div class="label">Status</div><span class="capsule status-not-started">Not started</span></div>
-        <div class="field"><div class="label">Completed</div><span class="placeholder">&mdash;</span></div>
-        <div class="field"><div class="label">Implementation notes</div><p class="placeholder">To be filled in as work progresses.</p></div>
-        <div class="field"><div class="label">Automated review</div><p class="placeholder">To be filled in by the automated review loop.</p></div>
-        <div class="field"><div class="label">Review comments</div><p class="placeholder">Awaiting human review.</p></div>
+        <div class="field"><div class="label">Status</div><span class="capsule status-completed">Completed</span></div>
+        <div class="field"><div class="label">Completed</div>2026-07-18</div>
+        <div class="field">
+            <div class="label">Implementation notes</div>
+            <p>Implemented with TDD &mdash; the serialization test suite written first and watched fail at compile
+                level (the <code>Serialized</code> method did not yet exist), then made to pass. Green in Debug
+                <em>and</em> Release (0 warnings under warnings-as-errors, nullable and overflow checks active); the
+                suite grew from 124 to <strong>140 tests</strong> (16 added: 15 ported serialization tests + 1 from the
+                review loop).</p>
+            <ul>
+                <li><strong>Serialized dispatch.</strong> Public <code>Serialized( FITSSerializationOptions )</code>
+                    returns <code>IReadOnlyList&lt;string&gt;</code> (the read-only sequence type already used by
+                    <code>ByteMemoryExtensions.Chunked</code>, and the idiomatic .NET analog of a returned string
+                    array). It re-normalizes the keyword under the serialization options via the M6
+                    <code>NormalizedKeyword</code>, then dispatches in order: commentary
+                    (<code>COMMENT</code>/<code>HISTORY</code>/blank) &rarr; <code>CONTINUE</code> (string-guarded)
+                    &rarr; string value &rarr; scalar. The string case is selected with
+                    <code>this.Value.AsString is string text</code>, the C# analog of binding the enum's string
+                    payload.</li>
+                <li><strong>Fixed-format renderers.</strong> <code>SerializedScalarCard</code> (the <code>= </code>
+                    indicator, the value right-justified to byte 30 via <code>RightJustified</code>, an optional
+                    <code>/</code> comment, an undefined value rendering as the empty value field),
+                    <code>SerializedCommentaryCards</code> (one card per <code>\n</code>-split comment line, or a
+                    single keyword-only card when there is no comment), and <code>PadCard</code> (pads to
+                    <code>CardSize</code>, throwing <code>CannotSerialize</code> when a body overflows the card
+                    width).</li>
+                <li><strong>Long-string path.</strong> <code>SerializedStringCards</code> emits a single card when the
+                    quoted literal fits, else delegates to <code>SerializedContinuedString</code>.
+                    <code>ChunkedStringContent</code> greedily splits content into &le; 67-column pieces
+                    (<code>CardSize - ( KeywordLength + 2 ) - 3</code>, reserving the two enclosing quotes and the
+                    <code>&amp;</code> flag), counting each interior quote twice to account for doubled-escaping.
+                    <code>ContinuationBody</code> builds each record (<code>= </code> on the value card,
+                    <code>CONTINUE&nbsp;&nbsp;</code> on the rest) and inserts the <code>&amp;</code> flag before the
+                    closing quote via <code>literal[ ..^1 ] + "&amp;'"</code>. The comment rides the last value card
+                    when it fits; otherwise every value card is flagged and the comment trails on its own
+                    <code>CONTINUE ''</code> record.</li>
+                <li><strong>XTENSION minimum.</strong> The <code>XTENSION</code> value is padded to at least eight
+                    characters via <code>Math.Max( KeywordLength, text.Length )</code> (which only ever pads, never
+                    truncates), per FITS 4.0.</li>
+                <li><strong>Numeric-text reuse.</strong> All value formatting flows through
+                    <code>FITSValue.Serialized()</code> (culture-invariant, with the decimal-point-or-exponent
+                    guarantee); the new code introduces no numeric formatting of its own, and its one integer
+                    interpolation (the <code>PadCard</code> overflow message) uses
+                    <code>CultureInfo.InvariantCulture</code>. A new fr-FR culture-swap guard
+                    (<code>SerializesFloatCardIsCultureInvariant</code>) confirms a serialized float card keeps its
+                    period separator &mdash; a meaningful guard, since it would fail if the float path ever regressed
+                    to culture-sensitive formatting.</li>
+                <li><strong>Layout.</strong> The serialization methods were appended to <code>FITSProperty.cs</code> as
+                    one cohesive block after the parse helpers and before <code>ToString()</code>. Tests live in a new
+                    <code>DotNetFITSTests/Model/FITSPropertySerializationTests.cs</code>, honoring the M6 test class's
+                    &ldquo;serialization is covered separately&rdquo; scoping; its two test-only helpers
+                    (<code>Pad80</code>, <code>RightJustified</code>) mirror the originals. The SDK-style projects glob
+                    their sources, so no <code>.csproj</code> change was needed.</li>
+                <li><strong>Tests.</strong> Ported all 14 serialization tests (idempotent fixed-format cards, logical
+                    right-justification to column 30, XTENSION padding, merged commentary, the three long-string
+                    <code>CONTINUE</code> cases, long free-format scalar, null/empty strings, undefined keyword, the
+                    typed-model round trips, non-finite-float rejection, and the unknown value); <em>added</em> the
+                    fr-FR culture guard.</li>
+            </ul>
+            <p><strong>Review follow-up (applied).</strong> During the automated review loop, added
+                <code>SerializesLongStringWithCommentOnLastCard</code> to cover the comment-fits-on-the-last-value-card
+                branch of <code>SerializedContinuedString</code>, which the ported suite (and the original) left
+                untested. Re-verified green (140 tests) in Debug and Release.</p>
+            <p><strong>Maintainer review follow-up (applied).</strong> Per the maintainer's review comment, spaced
+                generic type arguments inside their angle brackets &mdash; <code>List&lt; string &gt;</code>, not
+                <code>List&lt;string&gt;</code> &mdash; matching the spaces-inside-parentheses-and-brackets
+                convention. Applied codebase-wide (12 <code>.cs</code> files, M1&ndash;M7 source and tests) with a
+                tokenizer-aware transform that edits only real code, leaving strings, char literals and comments
+                untouched: so doc-comment tags (<code>&lt;c&gt;&hellip;&lt;/c&gt;</code>), the
+                <code>"&lt;nil&gt;"</code> literals, and comparison/shift operators (<code>&lt; 0</code>,
+                <code>1&nbsp;&lt;&lt;&nbsp;53</code>) were left as-is, while nested generics became
+                <code>IReadOnlyList&lt; ReadOnlyMemory&lt; byte &gt; &gt;</code>. The change is whitespace-only, so no
+                behavior is affected; re-verified green (140 tests, 0 warnings) in Debug and Release. Recorded as a
+                cross-cutting convention to carry into the remaining milestones.</p>
+            <p><strong>Maintainer review follow-up 2 (applied).</strong> Two further comments. (1)
+                <em>Comments reflect the code:</em> spaced the generic type arguments in doc-comment cross-references
+                too (<code>&lt;see cref="ReadOnlyMemory{ Byte }"/&gt;</code>,
+                <code>System.Func{ T, TResult }</code>) &mdash; 7 crefs across the codebase &mdash; and verified they
+                still resolve (no <code>CS1574</code>). (2) <em>Multi-line lambda layout:</em> a call taking a
+                multi-line lambda block now breaks its opening parenthesis onto its own line &mdash; the
+                <code>Select</code> in <code>SerializedContinuedString</code> and the two <code>TestUtilities</code>
+                block builders (the nested <code>Concat( Select( &hellip; ) )</code> breaks both levels).</p>
+            <p>While applying these, caught and fixed two consequences of the earlier generic spacing that the build
+                and tests could not surface (both are whitespace): the tuple type-argument form
+                <code>IReadOnlyList&lt;( &hellip; )&gt;</code>, which the first transform missed because its type-arg
+                did not start with a letter (now <code>IReadOnlyList&lt; ( &hellip; ) &gt;</code>, 5 occurrences); and
+                the <code>=</code>-alignment of every declaration block that a widened generic had knocked out of line
+                (13 blocks across three files &mdash; M5/M6 parse helpers and M7 code alike &mdash; re-aligned and
+                machine-verified with an alignment checker). Re-verified green (140 tests, 0 warnings) in Debug and
+                Release.</p>
+            <p><strong>Maintainer review follow-up 3 (applied).</strong> When a chained call follows a call whose
+                closing parenthesis is on its own line, the chained method now goes on its own line too:
+                <code>SerializedContinuedString</code>'s <code>Select( &hellip; )</code> closes on its own
+                <code>)</code> line, then <code>.ToArray();</code> on the next (the only such site in the codebase).
+                Re-verified green (140 tests, 0 warnings) in Debug and Release.</p>
+            <p><strong>Maintainer review follow-up 4 (applied).</strong> Adopted spaced string-interpolation holes
+                (<code>{ value }</code>, not <code>{value}</code>) across the whole codebase, per the maintainer's
+                confirmation that this matches the original project's style. This covered every interpolation hole in
+                M2, M4, M5, M6 and M7 (about 40 sites across 7 files) &mdash; not only the M7 additions &mdash; via a
+                tokenizer that spaces only the holes of <code>$"&hellip;"</code> strings and leaves escaped
+                <code>{{ &hellip; }}</code> literal braces, code blocks, plain strings and verbatim regexes untouched.
+                The spacing lives in the interpolation syntax, so the rendered output is byte-identical (the
+                <code>ToString()</code> tests pass unchanged); re-verified green (140 tests, 0 warnings) in Debug and
+                Release, with <code>=</code> alignment re-checked clean.</p>
+        </div>
+        <div class="field">
+            <div class="label">Automated review</div>
+            <p>One independent fresh-context round; converged immediately (no Critical/High/Medium findings). The
+                reviewer compared the port method-by-method against the original serializer, traced the chunking
+                capacity and <code>&amp;</code>-flag math by hand, and exercised the compiled library directly
+                (including branches no test covers); it confirmed the diff is purely additive (one <code>using</code>
+                plus the serialization methods), changes no M6 behavior, and has no non-test callers &mdash; so there
+                is no regression surface.</p>
+            <ul>
+                <li><em>Untested branch: a long value whose comment fits on the last value card</em> &mdash; Info
+                    &mdash; <strong>Fixed</strong>: added <code>SerializesLongStringWithCommentOnLastCard</code>; the
+                    branch was correct but exercised by no test in either suite.</li>
+                <li><em><code>ChunkedStringContent</code> uses repeated string concatenation (O(k) per character,
+                    k&nbsp;&le;&nbsp;67)</em> &mdash; Info &mdash; Deferred: a faithful, bounded mirror of the original
+                    fold; rewriting it would depart from parity for no practical gain.</li>
+                <li><em><code>Serialized</code>'s <code>&lt;exception&gt;</code> doc names <code>FITSException</code>
+                    generally</em> &mdash; Info &mdash; Deferred: accurate at the type level &mdash; keyword/width
+                    errors surface as <code>CannotSerialize</code> and a non-finite float as
+                    <code>InvalidValueForSerialization</code>, both <code>FITSException</code>.</li>
+            </ul>
+        </div>
+        <div class="field">
+            <div class="label">Review comments</div>
+            <ol>
+                <li><strong>Generic bracket spacing.</strong> Generic type arguments must be spaced inside the angle
+                    brackets &mdash; write <code>List&lt; string &gt;</code>, not <code>List&lt;string&gt;</code>
+                    &mdash; consistent with the spaces-inside-parentheses-and-brackets convention. Apply it
+                    everywhere across the C# code, not only the M7 additions.</li>
+                <li><strong>Comments reflect the code.</strong> The generic-bracket spacing applies to comments too,
+                    not only code: doc-comment and inline-comment references to generic types must use the same
+                    spaced form (e.g. <code>IReadOnlyList&lt; string &gt;</code>), so the comments match the code they
+                    describe.</li>
+                <li><strong>Multi-line lambda argument layout.</strong> When a method call takes a multi-line
+                    lambda/closure block, break the call's opening parenthesis onto its own line (Allman-style), with
+                    the lambda and its body indented inside and the closing parenthesis on its own line &mdash; e.g.
+                    <code>pieces.Select</code>, then <code>(</code> on the next line, then
+                    <code>( piece, index ) =&gt; { &hellip; }</code>, then <code>)</code> on its own line. Apply
+                    everywhere.</li>
+                <li><strong>Chained call after a broken-paren call.</strong> When a call's closing parenthesis is on
+                    its own line, a method chained onto its result (e.g. <code>.ToArray()</code>) goes on its own new
+                    line as well, not on the same line as the closing parenthesis. Apply everywhere.</li>
+                <li><strong>String-interpolation brace spacing.</strong> Asked for spaces inside interpolation braces
+                    (<code>{ value }</code> rather than <code>{value}</code>), recalled as a settled convention.
+                    <em>Finding surfaced for confirmation:</em> the committed codebase (M2, M4, M5, M6 and M7)
+                    uniformly uses the unspaced <code>{value}</code> &mdash; no spaced interpolation existed anywhere,
+                    so M7 matched the prevailing style; the only spaced braces are the escaped <code>{{ &hellip; }}</code>
+                    literal-brace pairs in the <code>ToString()</code> renderers. Confirmed by the maintainer
+                    &mdash; it should have been there from the start, matching the original project's style &mdash; and
+                    applied codebase-wide (see Implementation notes).</li>
+            </ol>
+        </div>
     </div>
 
     <div class="phase-banner">Phase 4 &middot; Section &amp; file layer</div>

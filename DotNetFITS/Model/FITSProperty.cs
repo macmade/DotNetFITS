@@ -23,6 +23,7 @@
  ******************************************************************************/
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
@@ -128,7 +129,7 @@ public sealed partial class FITSProperty
     /// <exception cref="FITSException">
     /// The data is not ASCII or the record is malformed.
     /// </exception>
-    public FITSProperty( ReadOnlyMemory<byte> data, FITSParsingOptions options ) : this( DecodeRecord( data ), options )
+    public FITSProperty( ReadOnlyMemory< byte > data, FITSParsingOptions options ) : this( DecodeRecord( data ), options )
     {}
 
     /// <summary>
@@ -150,7 +151,7 @@ public sealed partial class FITSProperty
     {
         if( record.Length != FITSFile.CardSize )
         {
-            throw FITSException.InvalidPropertyData( $"Invalid property data length ({record.Length.ToString( CultureInfo.InvariantCulture )})" );
+            throw FITSException.InvalidPropertyData( $"Invalid property data length ({ record.Length.ToString( CultureInfo.InvariantCulture ) })" );
         }
 
         if( record.All( char.IsAscii ) == false )
@@ -213,7 +214,7 @@ public sealed partial class FITSProperty
             return;
         }
 
-        ( FITSValue value, string? parsedComment ) = ParseValueAndComment( parsedName, $"= {rawValue}", options );
+        ( FITSValue value, string? parsedComment ) = ParseValueAndComment( parsedName, $"= { rawValue }", options );
 
         this.Name          = parsedName;
         this.StoredValue   = value;
@@ -330,7 +331,7 @@ public sealed partial class FITSProperty
         {
             if( this.Name != "HISTORY" )
             {
-                throw FITSException.InvalidPropertyData( $"Cannot merge a {this.Name} property with a {property.Name} property" );
+                throw FITSException.InvalidPropertyData( $"Cannot merge a { this.Name } property with a { property.Name } property" );
             }
 
             this.Comment = MergedComment( this.Comment, property.Comment );
@@ -339,7 +340,7 @@ public sealed partial class FITSProperty
         {
             if( this.Name != "COMMENT" )
             {
-                throw FITSException.InvalidPropertyData( $"Cannot merge a {this.Name} property with a {property.Name} property" );
+                throw FITSException.InvalidPropertyData( $"Cannot merge a { this.Name } property with a { property.Name } property" );
             }
 
             this.Comment = MergedComment( this.Comment, property.Comment );
@@ -351,12 +352,12 @@ public sealed partial class FITSProperty
 
             if( current is null || addition is null )
             {
-                throw FITSException.InvalidPropertyData( $"Cannot merge a {this.Name} property with a {property.Name} property - Invalid type" );
+                throw FITSException.InvalidPropertyData( $"Cannot merge a { this.Name } property with a { property.Name } property - Invalid type" );
             }
 
             if( current.Length == 0 || current[ ^1 ] != '&' )
             {
-                throw FITSException.InvalidPropertyData( $"Cannot merge a {this.Name} property with a {property.Name} property - No continue flag" );
+                throw FITSException.InvalidPropertyData( $"Cannot merge a { this.Name } property with a { property.Name } property - No continue flag" );
             }
 
             this.Value   = FITSValue.String( current[ ..^1 ] + addition );
@@ -364,7 +365,7 @@ public sealed partial class FITSProperty
         }
         else
         {
-            throw FITSException.InvalidPropertyData( $"Cannot merge a {this.Name} property with a {property.Name} property" );
+            throw FITSException.InvalidPropertyData( $"Cannot merge a { this.Name } property with a { property.Name } property" );
         }
     }
 
@@ -388,7 +389,7 @@ public sealed partial class FITSProperty
     {
         if( name.Length > FITSFile.KeywordLength )
         {
-            throw FITSException.CannotSerialize( $"Keyword name exceeds {FITSFile.KeywordLength.ToString( CultureInfo.InvariantCulture )} characters: {name}" );
+            throw FITSException.CannotSerialize( $"Keyword name exceeds { FITSFile.KeywordLength.ToString( CultureInfo.InvariantCulture ) } characters: { name }" );
         }
 
         if( name.All( FITSCharacterSet.IsKeyword ) )
@@ -398,7 +399,7 @@ public sealed partial class FITSProperty
 
         if( options.HasFlag( FITSSerializationOptions.CoerceInvalidKeywords ) == false )
         {
-            throw FITSException.CannotSerialize( $"Invalid keyword name: {name}" );
+            throw FITSException.CannotSerialize( $"Invalid keyword name: { name }" );
         }
 
         string coerced = name.ToUpperInvariant();
@@ -408,7 +409,7 @@ public sealed partial class FITSProperty
             return coerced;
         }
 
-        throw FITSException.CannotSerialize( $"Invalid keyword name: {name}" );
+        throw FITSException.CannotSerialize( $"Invalid keyword name: { name }" );
     }
 
     /// <summary>
@@ -419,7 +420,7 @@ public sealed partial class FITSProperty
     /// <returns>The joined comment, or <c>null</c> if both sides are <c>null</c>.</returns>
     private static string? MergedComment( string? lhs, string? rhs )
     {
-        string[] parts = new[] { lhs, rhs }.OfType<string>().ToArray();
+        string[] parts = new[] { lhs, rhs }.OfType< string >().ToArray();
 
         return parts.Length == 0 ? null : string.Join( "\n", parts );
     }
@@ -430,7 +431,7 @@ public sealed partial class FITSProperty
     /// <param name="data">The record bytes.</param>
     /// <returns>The decoded ASCII string.</returns>
     /// <exception cref="FITSException"><paramref name="data"/> is not ASCII.</exception>
-    private static string DecodeRecord( ReadOnlyMemory<byte> data )
+    private static string DecodeRecord( ReadOnlyMemory< byte > data )
     {
         if( data.ContainsOnlyASCII() == false )
         {
@@ -456,8 +457,8 @@ public sealed partial class FITSProperty
     /// </exception>
     private static string ParseName( string field, FITSParsingOptions options )
     {
-        Func<char, bool> padding = options.HasFlag( FITSParsingOptions.AllowNulPadding ) ? FITSCharacterSet.IsPaddingWithNul : FITSCharacterSet.IsPadding;
-        string           name    = field.RightTrimming( padding );
+        Func< char, bool > padding = options.HasFlag( FITSParsingOptions.AllowNulPadding ) ? FITSCharacterSet.IsPaddingWithNul : FITSCharacterSet.IsPadding;
+        string             name    = field.RightTrimming( padding );
 
         if( name.All( FITSCharacterSet.IsKeyword ) == false )
         {
@@ -475,8 +476,8 @@ public sealed partial class FITSProperty
     /// <returns>The trimmed comment, or <c>null</c> if it is blank.</returns>
     private static string? ParseCommentOnly( string field, FITSParsingOptions options )
     {
-        Func<char, bool> padding = options.HasFlag( FITSParsingOptions.AllowNulPaddingInValues ) ? FITSCharacterSet.IsPaddingWithNul : FITSCharacterSet.IsPadding;
-        string           trimmed = field.RightTrimming( padding );
+        Func< char, bool > padding = options.HasFlag( FITSParsingOptions.AllowNulPaddingInValues ) ? FITSCharacterSet.IsPaddingWithNul : FITSCharacterSet.IsPadding;
+        string             trimmed = field.RightTrimming( padding );
 
         return trimmed.Length == 0 ? null : trimmed;
     }
@@ -509,8 +510,8 @@ public sealed partial class FITSProperty
     /// <exception cref="FITSException">The value field is malformed.</exception>
     private static ( FITSValue Value, string? Comment ) ParseValueAndComment( string name, string field, FITSParsingOptions options )
     {
-        Func<char, bool> padding = options.HasFlag( FITSParsingOptions.AllowNulPaddingInValues ) ? FITSCharacterSet.IsPaddingWithNul : FITSCharacterSet.IsPadding;
-        string           value   = field.RightTrimming( padding );
+        Func< char, bool > padding = options.HasFlag( FITSParsingOptions.AllowNulPaddingInValues ) ? FITSCharacterSet.IsPaddingWithNul : FITSCharacterSet.IsPadding;
+        string             value   = field.RightTrimming( padding );
 
         if( name == "CONTINUE" )
         {
@@ -804,6 +805,271 @@ public sealed partial class FITSProperty
     [ GeneratedRegex( @"^[+-]?(?:\d+\.?\d*|\.\d+)([EeDd][+-]?\d+)?$" ) ]
     private static partial Regex FloatingPointLowercaseExponentRegex();
 
+    /// <summary>
+    /// Renders this property to one or more standards-compliant 80-byte cards - the
+    /// inverse of the record parser.
+    /// </summary>
+    /// <remarks>
+    /// A value keyword yields a single fixed-format card: the keyword left-justified
+    /// in the eight-byte field, the <c>= </c> value indicator, the value literal
+    /// (scalars right-justified to byte 30, strings opening at byte 11), an optional
+    /// <c>/</c> comment, blank-padded to <see cref="FITSFile.CardSize"/> bytes.
+    /// <c>COMMENT</c>, <c>HISTORY</c> and the blank keyword yield one commentary card
+    /// per line of their comment, and a string value too long for a single card is
+    /// split across <c>CONTINUE</c> records.
+    /// </remarks>
+    /// <param name="options">The serialization options to apply.</param>
+    /// <returns>
+    /// The rendered cards, each exactly <see cref="FITSFile.CardSize"/> bytes.
+    /// </returns>
+    /// <exception cref="FITSException">
+    /// The keyword is invalid, a record would exceed the card width, or the value
+    /// cannot be rendered (for example a non-finite float).
+    /// </exception>
+    public IReadOnlyList< string > Serialized( FITSSerializationOptions options )
+    {
+        string name = NormalizedKeyword( this.Name, options );
+
+        if( name == "COMMENT" || name == "HISTORY" || name.Length == 0 )
+        {
+            return this.SerializedCommentaryCards( name );
+        }
+
+        if( name == "CONTINUE" )
+        {
+            if( this.Value.Kind != FITSValueKind.String )
+            {
+                throw FITSException.CannotSerialize( "A CONTINUE record requires a string value" );
+            }
+
+            return [ PadCard( $"CONTINUE  { this.Value.Serialized() }{ this.SerializedComment() }" ) ];
+        }
+
+        if( this.Value.AsString is string text )
+        {
+            return this.SerializedStringCards( name, text );
+        }
+
+        return [ this.SerializedScalarCard( name ) ];
+    }
+
+    /// <summary>
+    /// Renders a commentary property (<c>COMMENT</c>, <c>HISTORY</c> or the blank
+    /// keyword) to one card per line of its comment.
+    /// </summary>
+    /// <param name="name">The already-normalized keyword name.</param>
+    /// <returns>
+    /// The commentary cards. A property with no comment yields one card holding just
+    /// the keyword field.
+    /// </returns>
+    /// <exception cref="FITSException">A line does not fit the card width.</exception>
+    private IReadOnlyList< string > SerializedCommentaryCards( string name )
+    {
+        string   field = name.PaddedOrTruncated( FITSFile.KeywordLength );
+        string[] lines = this.Comment?.Split( '\n' ) ?? [ "" ];
+
+        return lines.Select( line => PadCard( field + line ) ).ToArray();
+    }
+
+    /// <summary>
+    /// Renders a non-string value keyword to a single fixed-format card.
+    /// </summary>
+    /// <param name="name">The already-normalized keyword name.</param>
+    /// <returns>The rendered card.</returns>
+    /// <exception cref="FITSException">
+    /// The record exceeds the card width, or the value cannot be rendered.
+    /// </exception>
+    private string SerializedScalarCard( string name )
+    {
+        string field = name.PaddedOrTruncated( FITSFile.KeywordLength );
+        string value = this.Value.Kind == FITSValueKind.Undefined ? "" : RightJustified( this.Value.Serialized() );
+        string body  = $"{ field }= { value }{ this.SerializedComment() }";
+
+        return PadCard( body );
+    }
+
+    /// <summary>
+    /// Renders a string value keyword, splitting a value too long for one card across
+    /// <c>CONTINUE</c> records per the FITS long-string convention.
+    /// </summary>
+    /// <param name="name">The already-normalized keyword name.</param>
+    /// <param name="text">The string value to render.</param>
+    /// <returns>The rendered cards.</returns>
+    /// <exception cref="FITSException">
+    /// A record exceeds the card width, or the value cannot be rendered.
+    /// </exception>
+    private IReadOnlyList< string > SerializedStringCards( string name, string text )
+    {
+        // The XTENSION value must be padded to eight characters (FITS 4.0 section 4.2.1).
+        string content = name == "XTENSION" ? text.PaddedOrTruncated( Math.Max( FITSFile.KeywordLength, text.Length ) ) : text;
+        string field   = name.PaddedOrTruncated( FITSFile.KeywordLength );
+        string literal = FITSValue.String( content ).Serialized();
+        string single  = $"{ field }= { literal }{ this.SerializedComment() }";
+
+        if( single.Length <= FITSFile.CardSize )
+        {
+            return [ PadCard( single ) ];
+        }
+
+        return this.SerializedContinuedString( name, content );
+    }
+
+    /// <summary>
+    /// Splits a long string value into a first value card plus <c>CONTINUE</c>
+    /// records, per the FITS long-string convention (FITS 4.0 section 4.2.1).
+    /// </summary>
+    /// <remarks>
+    /// Each substring, once its interior quotes are doubled and it is enclosed in
+    /// quotes, fits the value field; every substring but the last carries a trailing
+    /// <c>&amp;</c> continuation flag. The comment is placed on the last value card
+    /// when it fits there; otherwise every value card is flagged and the comment
+    /// trails on its own <c>CONTINUE</c> card carrying an empty string, so a long
+    /// value that also has a comment still serializes.
+    /// </remarks>
+    /// <param name="name">The already-normalized keyword name.</param>
+    /// <param name="content">The full string value to split.</param>
+    /// <returns>The rendered cards.</returns>
+    /// <exception cref="FITSException">
+    /// A record exceeds the card width, or the value cannot be rendered.
+    /// </exception>
+    private IReadOnlyList< string > SerializedContinuedString( string name, string content )
+    {
+        string                  field    = name.PaddedOrTruncated( FITSFile.KeywordLength );
+        string                  comment  = this.SerializedComment();
+        IReadOnlyList< string > pieces   = ChunkedStringContent( content );
+        string                  lastBody = ContinuationBody( field, pieces.Count - 1, pieces[ pieces.Count - 1 ], false, comment );
+
+        if( lastBody.Length <= FITSFile.CardSize )
+        {
+            return pieces.Select
+            (
+                ( piece, index ) =>
+                {
+                    bool isLast = index == pieces.Count - 1;
+
+                    return PadCard( ContinuationBody( field, index, piece, isLast == false, isLast ? comment : "" ) );
+                }
+            )
+            .ToArray();
+        }
+
+        string[] cards = pieces.Select( ( piece, index ) => PadCard( ContinuationBody( field, index, piece, true, "" ) ) ).ToArray();
+
+        return [ ..cards, PadCard( $"CONTINUE  ''{ comment }" ) ];
+    }
+
+    /// <summary>
+    /// Splits string content into substrings that each fit the value field once
+    /// escaped, quoted and flagged.
+    /// </summary>
+    /// <param name="content">
+    /// The string value to split. An empty value yields a single empty substring.
+    /// </param>
+    /// <returns>The substrings, in order.</returns>
+    private static IReadOnlyList< string > ChunkedStringContent( string content )
+    {
+        // The 10-byte prefix (keyword + "= ", or "CONTINUE" plus two spaces) leaves
+        // bytes 11-80 = 70 columns; reserve two for the enclosing quotes and one for
+        // the trailing "&" flag, giving 67 content characters.
+        int capacity = FITSFile.CardSize - ( FITSFile.KeywordLength + 2 ) - 3;
+
+        if( content.Length == 0 )
+        {
+            return [ "" ];
+        }
+
+        List< string > pieces = new List< string >();
+
+        foreach( char character in content )
+        {
+            string candidate = ( pieces.Count == 0 ? "" : pieces[ ^1 ] ) + character;
+            int    escaped   = candidate.Length + candidate.Count( quote => quote == '\'' );
+
+            if( pieces.Count != 0 && escaped <= capacity )
+            {
+                pieces[ ^1 ] = candidate;
+            }
+            else
+            {
+                pieces.Add( character.ToString() );
+            }
+        }
+
+        return pieces;
+    }
+
+    /// <summary>
+    /// Builds one continuation record body from a substring.
+    /// </summary>
+    /// <param name="field">The padded keyword field used on the first record.</param>
+    /// <param name="index">
+    /// The substring's position; index 0 is the value card, the rest are
+    /// <c>CONTINUE</c> records.
+    /// </param>
+    /// <param name="piece">The substring content.</param>
+    /// <param name="flagged">
+    /// Whether to append the <c>&amp;</c> continuation flag before the closing quote.
+    /// </param>
+    /// <param name="comment">A trailing comment suffix, or the empty string for none.</param>
+    /// <returns>The unpadded record body.</returns>
+    /// <exception cref="FITSException">The value cannot be rendered.</exception>
+    private static string ContinuationBody( string field, int index, string piece, bool flagged, string comment )
+    {
+        string prefix  = index == 0 ? $"{ field }= " : "CONTINUE  ";
+        string literal = FITSValue.String( piece ).Serialized();
+        string value   = flagged ? $"{ literal[ ..^1 ] }&'" : literal;
+
+        return $"{ prefix }{ value }{ comment }";
+    }
+
+    /// <summary>
+    /// Right-justifies a scalar value literal within the fixed-format value field. A
+    /// literal already at least <see cref="FITSFile.FixedValueFieldWidth"/> long is
+    /// returned unchanged (free-format overflow).
+    /// </summary>
+    /// <param name="literal">The value literal to place.</param>
+    /// <returns>The literal padded on the left to the fixed field width.</returns>
+    private static string RightJustified( string literal )
+    {
+        if( literal.Length >= FITSFile.FixedValueFieldWidth )
+        {
+            return literal;
+        }
+
+        return literal.PadLeft( FITSFile.FixedValueFieldWidth );
+    }
+
+    /// <summary>
+    /// Renders this property's comment as a card suffix.
+    /// </summary>
+    /// <remarks>
+    /// The single space after the <c>/</c> mirrors the one dropped by the parser, so
+    /// the comment round-trips.
+    /// </remarks>
+    /// <returns>
+    /// <c> / &lt;comment&gt;</c> when a comment is present, otherwise the empty string.
+    /// </returns>
+    private string SerializedComment()
+    {
+        return this.Comment is null ? "" : $" / { this.Comment }";
+    }
+
+    /// <summary>
+    /// Pads a rendered record to the full card width, or fails if it is too long.
+    /// </summary>
+    /// <param name="body">The record text.</param>
+    /// <returns>The space-padded <see cref="FITSFile.CardSize"/>-byte card.</returns>
+    /// <exception cref="FITSException"><paramref name="body"/> exceeds the card width.</exception>
+    private static string PadCard( string body )
+    {
+        if( body.Length > FITSFile.CardSize )
+        {
+            throw FITSException.CannotSerialize( $"Record exceeds { FITSFile.CardSize.ToString( CultureInfo.InvariantCulture ) } characters: { body }" );
+        }
+
+        return body.PaddedOrTruncated( FITSFile.CardSize );
+    }
+
     /// <summary>Returns a single-line, human-readable summary of the property.</summary>
     /// <returns>The summary string.</returns>
     public override string ToString()
@@ -812,7 +1078,7 @@ public sealed partial class FITSProperty
         string comment = this.Comment?.Replace( "\n", "\\n", StringComparison.Ordinal ) ?? "<nil>";
         string value   = this.DescribeValue();
 
-        return $"FITSProperty {{ name: {name}, kind: {this.Value.Kind}, value: {value}, comment: {comment} }}";
+        return $"FITSProperty {{ name: { name }, kind: { this.Value.Kind }, value: { value }, comment: { comment } }}";
     }
 
     /// <summary>
