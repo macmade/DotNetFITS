@@ -12,7 +12,7 @@
 #-------------------------------------------------------------------------------
 
 DIR_ROOT            := $(realpath .)/
-DIR_BUILD           := $(DIR_ROOT)build/
+DIR_BUILD           := $(DIR_ROOT)Build/
 
 SOLUTION            := DotNetFITS.slnx
 PROJECT             := DotNetFITS/DotNetFITS.csproj
