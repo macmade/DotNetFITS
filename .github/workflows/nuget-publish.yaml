@@ -1,0 +1,34 @@
+name: nuget-publish
+on:
+    push:
+        tags: [ '*' ]
+jobs:
+    publish:
+        runs-on: windows-2025-vs2026
+        permissions:
+            contents: read
+            id-token: write
+        steps:
+
+            - uses: actions/checkout@v6
+              with:
+                submodules: 'recursive'
+
+            - name: Pack
+              run:  dotnet pack DotNetFITS/DotNetFITS.csproj --configuration Release --output Build
+
+            - name: NuGet Login
+              uses: NuGet/login@v1
+              id:   login
+              with:
+                user: ${{ secrets.NUGET_USER }}
+
+            - name: Publish
+              shell: pwsh
+              run: |
+                Get-ChildItem -Path Build -Filter *.nupkg | Where-Object { $_.Extension -eq '.nupkg' } | ForEach-Object {
+                    dotnet nuget push $_.FullName `
+                        --api-key ${{ steps.login.outputs.NUGET_API_KEY }} `
+                        --source https://api.nuget.org/v3/index.json `
+                        --skip-duplicate
+                }
